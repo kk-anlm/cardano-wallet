@@ -99,10 +99,6 @@ import Cardano.Wallet.Primitive.AddressDerivation
     , Depth (..)
     , DerivationIndex (..)
     , NetworkDiscriminant (..)
-    , Passphrase (..)
-    , PassphraseMaxLength (..)
-    , PassphraseMinLength (..)
-    , PassphraseScheme (..)
     , deriveRewardAccount
     , getRawKey
     , hex
@@ -121,6 +117,13 @@ import Cardano.Wallet.Primitive.AddressDiscovery.Sequential
     ( SeqState, defaultAddressPoolGap, mkSeqStateFromRootXPrv, purposeCIP1852 )
 import Cardano.Wallet.Primitive.Model
     ( Wallet (..), unsafeInitWallet )
+import Cardano.Wallet.Primitive.Passphrase
+    ( Passphrase (..)
+    , PassphraseMaxLength (..)
+    , PassphraseMinLength (..)
+    , PassphraseScheme (..)
+    , preparePassphrase
+    )
 import Cardano.Wallet.Primitive.Slotting
     ( TimeInterpreter, hoistTimeInterpreter, mkSingleEraInterpreter )
 import Cardano.Wallet.Primitive.Types

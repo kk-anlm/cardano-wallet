@@ -91,7 +91,6 @@ import Cardano.Wallet.Primitive.AddressDerivation
     , KeyFingerprint (..)
     , MkKeyFingerprint (..)
     , NetworkDiscriminant (..)
-    , Passphrase (..)
     , PaymentAddress (..)
     , PersistPublicKey (..)
     , Role (..)
@@ -109,6 +108,8 @@ import Cardano.Wallet.Primitive.AddressDiscovery
     , KnownAddresses (..)
     , coinTypeAda
     )
+import Cardano.Wallet.Primitive.Passphrase
+    ( Passphrase )
 import Cardano.Wallet.Primitive.Types.Address
     ( Address (..), AddressState (..) )
 import Cardano.Wallet.Primitive.Types.RewardAccount
