@@ -2149,7 +2149,7 @@ constructTransaction ctx genChange knownPools getPoolStatus (ApiT wid) body = do
             isNothing (body ^. #payments) &&
             isNothing (body ^. #withdrawal) &&
             isNothing (body ^. #metadata) &&
-            isNothing (body ^. #mintBurn) &&
+            isNothing (body ^. #mintedBurned) &&
             isNothing (body ^. #delegations)
     when isNoPayload $
         liftHandler $ throwE ErrConstructTxWrongPayload
@@ -2255,6 +2255,7 @@ constructTransaction ctx genChange knownPools getPoolStatus (ApiT wid) body = do
             { transaction = ApiT tx
             , coinSelection = mkApiCoinSelection
                 (maybeToList deposit) (maybeToList refund) Nothing md sel'
+            , mintedBurned = Nothing
             , fee = Quantity $ fromIntegral fee
             }
   where
