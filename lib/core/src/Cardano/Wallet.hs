@@ -3200,6 +3200,7 @@ data ErrConstructTx
     | ErrConstructTxIncorrectTTL PastHorizonException
     | ErrConstructTxMultidelegationNotSupported
     | ErrConstructTxMultiaccountNotSupported
+    | ErrConstructTxWrongMintingBurningTemplate
     | ErrConstructTxNotImplemented String
     -- ^ Temporary error constructor.
     deriving (Show, Eq)
