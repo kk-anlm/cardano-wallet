@@ -509,7 +509,7 @@ import Data.ByteString
 import Data.Coerce
     ( coerce )
 import Data.Either
-    ( isRight )
+    ( isLeft )
 import Data.Either.Extra
     ( eitherToMaybe )
 import Data.Function
@@ -2165,7 +2165,7 @@ constructTransaction ctx genChange knownPools getPoolStatus (ApiT wid) body = do
     let mintingBurning = body ^. #mintedBurned
     let retrieveAllCosigners = foldScript (:) []
     let wrongMintingTemplate (ApiMintBurnData _ (ApiT scriptTempl) _ _) =
-            isRight (validateScriptOfTemplate RecommendedValidation scriptTempl) ||
+            isLeft (validateScriptOfTemplate RecommendedValidation scriptTempl) ||
             length (retrieveAllCosigners scriptTempl) > 1
     when (isJust mintingBurning && L.any wrongMintingTemplate (NE.toList $ fromJust mintingBurning)) $
         liftHandler $ throwE ErrConstructTxWrongMintingBurningTemplate
