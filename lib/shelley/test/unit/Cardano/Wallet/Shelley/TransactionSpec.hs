@@ -2562,8 +2562,6 @@ prop_balanceTransactionBalanced (Wallet' utxo wal pending) (ShowBuildable partia
                         "already balanced"
                     $ classify (txFee sealedTx > Cardano.Lovelace 1_000_000)
                         "fee above 1 ada"
-                    $ classify (txFee sealedTx > Cardano.Lovelace 1_000_000)
-                        "fee above 1 ada"
                     $ classify (hasCollateral sealedTx)
                         "balanced tx has collateral"
                     $ conjoin
@@ -2594,8 +2592,6 @@ prop_balanceTransactionBalanced (Wallet' utxo wal pending) (ShowBuildable partia
                 (SelectionBalanceErrorOf
                 (InsufficientMinCoinValues _)))) ->
                 label "outputs below minCoinValue" $ property True
-            Left (ErrBalanceTxNotYetSupported Deposits) ->
-                label ("not yet supported: deposits") True
             Left (ErrBalanceTxExistingCollateral) ->
                 label "existing collateral" True
             Left (ErrBalanceTxNotYetSupported ZeroAdaOutput) ->
