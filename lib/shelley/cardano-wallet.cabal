@@ -36,6 +36,8 @@ library
     , bech32
     , bech32-th
     , binary
+    , blockfrost-client >=0.3.1.0 && <0.4
+    , blockfrost-client-core >=0.2.0.0 && <0.3
     , bytestring
     , cardano-addresses
     , cardano-api
@@ -106,6 +108,7 @@ library
       Cardano.Wallet.Shelley.Network
       Cardano.Wallet.Shelley.Transaction
       Cardano.Wallet.Shelley.Launch
+      Cardano.Wallet.Shelley.Launch.Blockfrost
       Cardano.Wallet.Shelley.Launch.Cluster
       Cardano.Wallet.Shelley.Pools
 

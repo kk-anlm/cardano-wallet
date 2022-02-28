@@ -40,6 +40,8 @@
           (hsPkgs."bech32" or (errorHandler.buildDepError "bech32"))
           (hsPkgs."bech32-th" or (errorHandler.buildDepError "bech32-th"))
           (hsPkgs."binary" or (errorHandler.buildDepError "binary"))
+          (hsPkgs."blockfrost-client" or (errorHandler.buildDepError "blockfrost-client"))
+          (hsPkgs."blockfrost-client-core" or (errorHandler.buildDepError "blockfrost-client-core"))
           (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
           (hsPkgs."cardano-addresses" or (errorHandler.buildDepError "cardano-addresses"))
           (hsPkgs."cardano-api" or (errorHandler.buildDepError "cardano-api"))
@@ -110,6 +112,7 @@
           "Cardano/Wallet/Shelley/Network"
           "Cardano/Wallet/Shelley/Transaction"
           "Cardano/Wallet/Shelley/Launch"
+          "Cardano/Wallet/Shelley/Launch/Blockfrost"
           "Cardano/Wallet/Shelley/Launch/Cluster"
           "Cardano/Wallet/Shelley/Pools"
           ];

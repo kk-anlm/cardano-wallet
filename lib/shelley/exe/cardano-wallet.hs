@@ -98,7 +98,9 @@ import Cardano.Wallet.Shelley
     , tracerLabels
     )
 import Cardano.Wallet.Shelley.Launch
-    ( NetworkConfiguration (..)
+    ( Mode
+    , NetworkConfiguration (..)
+    , modeFlag
     , networkConfigurationOption
     , nodeSocketOption
     , parseGenesisData
@@ -177,6 +179,7 @@ beforeMainLoop tr = logInfo tr . MsgListenAddress
 -- | Arguments for the 'serve' command
 data ServeArgs = ServeArgs
     { _hostPreference :: HostPreference
+    , _mode :: Mode
     , _listen :: Listen
     , _tlsConfig :: Maybe TlsConfiguration
     , _nodeSocket :: CardanoNodeConn
@@ -198,6 +201,7 @@ cmdServe = command "serve" $ info (helper <*> helper' <*> cmd) $ mempty
 
     cmd = fmap exec $ ServeArgs
         <$> hostPreferenceOption
+        <*> modeFlag
         <*> listenOption
         <*> optional tlsOption
         <*> nodeSocketOption
@@ -212,6 +216,7 @@ cmdServe = command "serve" $ info (helper <*> helper' <*> cmd) $ mempty
         :: ServeArgs -> IO ()
     exec args@(ServeArgs
       host
+      _mode
       listen
       tlsConfig
       conn
