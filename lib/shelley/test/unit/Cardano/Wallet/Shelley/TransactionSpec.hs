@@ -231,7 +231,7 @@ import Cardano.Wallet.Unsafe
 import Control.Arrow
     ( first )
 import Control.Monad
-    ( forM, forM_, replicateM )
+    ( forM, forM_, replicateM, when )
 import Control.Monad.Random
     ( MonadRandom (..)
     , Rand
@@ -2567,10 +2567,14 @@ prop_balanceTransactionBalanced (Wallet' utxo wal pending) (ShowBuildable partia
                     $ classify (hasCollateral sealedTx)
                         "balanced tx has collateral"
                     $ conjoin
-                        [ (txBalance sealedTx combinedUTxO === mempty)
+                        [ txBalance sealedTx combinedUTxO === mempty
                         , (prop_expectFeeExcessSmallerThan
                             (Cardano.Lovelace 1_200_000) sealedTx)
                         , prop_minfeeIsCovered sealedTx
+
+                          -- FIXME [ADP-1484] Remove 'pendingProp' when
+                          -- coin-selection completely respects 'txMaxSize'
+                        , pendingProp $ prop_validSize partialTx sealedTx
                         ]
             Left
                 (ErrBalanceTxSelectAssets
@@ -2657,12 +2661,50 @@ prop_balanceTransactionBalanced (Wallet' utxo wal pending) (ShowBuildable partia
                 ]
         counterexample msg $ property $ fee >= minfee
 
+    pendingProp :: Property -> Property
+    pendingProp p = property True .||. p
+
+    -- Test that the balanced transaction respsects the maximum tx size limit,
+    -- assuming the partial tx input already did so.
+    prop_validSize :: PartialTx -> SealedTx -> Property
+    prop_validSize tx1 tx2 =
+        case (validSize (view #sealedTx tx1), validSize tx2)  of
+            (Left _, _) -> property True
+            (Right (), Left e) -> counterexample e $ property False
+            (Right (), Right ()) -> property True
+      where
+        mw = SomeMnemonic $ either (error . show) id
+            (entropyToMnemonic @12 <$> mkEntropy "0000000000000000")
+        rootK = Shelley.unsafeGenerateKeyFromSeed (mw, Nothing) mempty
+
+        validSize :: SealedTx -> Either String ()
+        validSize tx = do
+            let tx' = signTransaction
+                    testTxLayer
+                    (Cardano.AnyCardanoEra AlonzoEra)
+                    (\_addr -> Just (rootK, mempty))
+                    (rootK, mempty)
+                    -- FIXME: Won't produce a witness! Property needs to be
+                    -- strengthened by ensuring witnesses are added for all
+                    -- withdrawals.
+                    (inputMapToUTxO $ UTxOIndex.toMap utxo)
+                    tx
+            let size = BS.length (view #serialisedTx tx')
+            let limit = fromIntegral $ getQuantity $ view (#txParameters . #getTxMaxSize)
+                    mockProtocolParameters
+            let msg = unwords
+                    [ "The tx size "
+                    , show size
+                    , "must be lower than the maximum size "
+                    , show limit
+                    , ", tx:"
+                    , show (decodeTx testTxLayer tx')
+                    ]
+            when (size > limit) $ Left msg
+
     -- FIXME: TMP Hack; tweak generators instead?
     partialTx = PartialTx s ins' r
       where
-        inputMapToUTxO :: Map InputId TokenBundle -> UTxO
-        inputMapToUTxO =
-            UTxO . Map.fromList . fmap (\((i, a), b) -> (i, TxOut a b)) . Map.toList
 
         PartialTx s ins r = partialTx'
         utxo' = inputMapToUTxO $ UTxOIndex.toMap utxo
@@ -2670,6 +2712,10 @@ prop_balanceTransactionBalanced (Wallet' utxo wal pending) (ShowBuildable partia
             case UTxO.lookup i utxo' of
                 Just o' -> (i,o',Nothing)
                 Nothing -> (i,o,dh)
+
+    inputMapToUTxO :: Map InputId TokenBundle -> UTxO
+    inputMapToUTxO =
+        UTxO . Map.fromList . fmap (\((i, a), b) -> (i, TxOut a b)) . Map.toList
 
     hasCollateral :: SealedTx -> Bool
     hasCollateral tx = withAlonzoBody tx $ \(Cardano.TxBody content) ->
