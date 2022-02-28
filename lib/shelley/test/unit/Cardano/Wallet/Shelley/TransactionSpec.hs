@@ -305,7 +305,6 @@ import Test.Hspec
     , shouldBe
     , shouldSatisfy
     , xdescribe
-    , xit
     )
 import Test.Hspec.Core.Spec
     ( SpecM )
@@ -2017,7 +2016,7 @@ balanceTransactionSpec = do
 
         -- TODO: Fix balancing issues which are presumably due to
         -- variable-length coin encoding boundary cases.
-        xit "produces balanced transactions or fails"
+        it "produces balanced transactions or fails"
             $ property prop_balanceTransactionBalanced
 
         balanceTransactionGoldenSpec
@@ -2546,7 +2545,7 @@ prop_balanceTransactionBalanced
     -> StdGenSeed
     -> Property
 prop_balanceTransactionBalanced (Wallet' utxo wal pending) (ShowBuildable partialTx') seed
-    = withMaxSuccess 200 $ do
+    = withMaxSuccess 1000 $ do
         let combinedUTxO = mconcat
                 [ resolvedInputsUTxO Cardano.ShelleyBasedEraAlonzo partialTx
                 , toCardanoUTxO Cardano.ShelleyBasedEraAlonzo $ view #utxo wal
