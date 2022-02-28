@@ -22,10 +22,7 @@
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Cardano.Wallet.Shelley.TransactionSpec
-    ( spec
-    , balanceTransactionSpec
-    ) where
+module Cardano.Wallet.Shelley.TransactionSpec (spec) where
 
 import Prelude
 
@@ -57,8 +54,6 @@ import Cardano.Api.Gen
     , genTxOut
     , genWitnesses
     )
-import Cardano.Api.Shelley
-    ( selectLovelace )
 import Cardano.BM.Data.Tracer
     ( nullTracer )
 import Cardano.BM.Tracer
@@ -347,7 +342,6 @@ import Test.QuickCheck
     , vectorOf
     , withMaxSuccess
     , within
-    , (.&&.)
     , (.||.)
     , (=/=)
     , (===)
@@ -2551,7 +2545,7 @@ prop_balanceTransactionBalanced
     -> ShowBuildable PartialTx
     -> StdGenSeed
     -> Property
-prop_balanceTransactionBalanced (Wallet' utxo wal pending) (ShowBuildable partialTx) seed
+prop_balanceTransactionBalanced (Wallet' utxo wal pending) (ShowBuildable partialTx') seed
     = withMaxSuccess 200 $ do
         let combinedUTxO = mconcat
                 [ resolvedInputsUTxO Cardano.ShelleyBasedEraAlonzo partialTx
@@ -2565,7 +2559,7 @@ prop_balanceTransactionBalanced (Wallet' utxo wal pending) (ShowBuildable partia
         case res of
             Right sealedTx -> counterexample ("\nResult: " <> pretty sealedTx) $ do
                 label "success"
-                    $ classify (originalBalance == Cardano.Lovelace 0)
+                    $ classify (originalBalance == mempty)
                         "already balanced"
                     $ classify (txFee sealedTx > Cardano.Lovelace 1_000_000)
                         "fee above 1 ada"
@@ -2573,11 +2567,12 @@ prop_balanceTransactionBalanced (Wallet' utxo wal pending) (ShowBuildable partia
                         "fee above 1 ada"
                     $ classify (hasCollateral sealedTx)
                         "balanced tx has collateral"
-                    (txBalance sealedTx combinedUTxO === 0)
-                    .&&. (abs (txFee sealedTx) .<= 4_000_000)
-                    -- Fee limit chosen at a hunch for the sake of sanity. As
-                    -- long as the property uses mainnet PParams, this is
-                    -- useful.
+                    $ conjoin
+                        [ (txBalance sealedTx combinedUTxO === mempty)
+                        , (prop_expectFeeExcessSmallerThan
+                            (Cardano.Lovelace 1_200_000) sealedTx)
+                        , prop_minfeeIsCovered sealedTx
+                        ]
             Left
                 (ErrBalanceTxSelectAssets
                 (ErrSelectAssetsSelectionError
@@ -2633,7 +2628,49 @@ prop_balanceTransactionBalanced (Wallet' utxo wal pending) (ShowBuildable partia
             Left err -> label "other error" $
                 counterexample ("balanceTransaction failed: " <> show err) False
   where
-    a .<= b = counterexample (show a <> " /<= " <> show b) $ property $ a <= b
+    prop_expectFeeExcessSmallerThan lim tx = do
+        let fee = txFee tx
+        let minfee = txMinFee tx
+        let unLovelace (Cardano.Lovelace x) = x
+        let delta = Cardano.Lovelace $ (unLovelace fee) - (unLovelace minfee)
+        let msg = unwords
+                [ "The fee", showInParens fee
+                , "was", show delta
+                , "larger than the minimum fee", showInParens minfee <> ","
+                , "which is a larger difference than", show lim
+                ]
+        counterexample msg $ property $ delta < lim
+      where
+        showInParens x = "(" <> show x <> ")"
+
+    prop_minfeeIsCovered tx = do
+        let fee = txFee tx
+        let minfee = txMinFee tx
+        let unLovelace (Cardano.Lovelace x) = x
+        let delta = Cardano.Lovelace $ (unLovelace minfee) - (unLovelace fee)
+        let msg = unwords
+                [ "The minimum fee was"
+                , show minfee
+                , "but the actual fee,"
+                , show fee
+                , "was lower by"
+                , show delta
+                ]
+        counterexample msg $ property $ fee >= minfee
+
+    -- FIXME: TMP Hack; tweak generators instead?
+    partialTx = PartialTx s ins' r
+      where
+        inputMapToUTxO :: Map InputId TokenBundle -> UTxO
+        inputMapToUTxO =
+            UTxO . Map.fromList . fmap (\((i, a), b) -> (i, TxOut a b)) . Map.toList
+
+        PartialTx s ins r = partialTx'
+        utxo' = inputMapToUTxO $ UTxOIndex.toMap utxo
+        ins' = flip map ins $ \(i,o,dh) ->
+            case UTxO.lookup i utxo' of
+                Just o' -> (i,o',Nothing)
+                Nothing -> (i,o,dh)
 
     hasCollateral :: SealedTx -> Bool
     hasCollateral tx = withAlonzoBody tx $ \(Cardano.TxBody content) ->
@@ -2648,15 +2685,20 @@ prop_balanceTransactionBalanced (Wallet' utxo wal pending) (ShowBuildable partia
             Cardano.TxFeeExplicit _ c -> c
             Cardano.TxFeeImplicit _ -> error "implicit fee"
 
-    txBalance :: SealedTx -> Cardano.UTxO Cardano.AlonzoEra -> Cardano.Lovelace
+    txMinFee :: SealedTx -> Cardano.Lovelace
+    txMinFee = toCardanoLovelace
+        . fromMaybe (error "evaluateMinimumFee returned nothing!")
+        . evaluateMinimumFee testTxLayer nodePParams
+
+    txBalance :: SealedTx -> Cardano.UTxO Cardano.AlonzoEra -> Cardano.Value
     txBalance tx u = withAlonzoBody tx $ \bod ->
-        lovelaceFromCardanoTxOutValue
+        valueFromCardanoTxOutValue
         $ Cardano.evaluateTransactionBalance nodePParams mempty u bod
 
-    lovelaceFromCardanoTxOutValue
-        :: forall era. Cardano.TxOutValue era -> Cardano.Lovelace
-    lovelaceFromCardanoTxOutValue (TxOutAdaOnly _ coin) = coin
-    lovelaceFromCardanoTxOutValue (TxOutValue _ val) = selectLovelace val
+    valueFromCardanoTxOutValue
+        :: forall era. Cardano.TxOutValue era -> Cardano.Value
+    valueFromCardanoTxOutValue (TxOutAdaOnly _ coin) = Cardano.lovelaceToValue coin
+    valueFromCardanoTxOutValue (TxOutValue _ val) = val
 
 
     (_, nodePParams) = mockProtocolParametersForBalancing
