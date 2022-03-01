@@ -2683,6 +2683,12 @@ prop_balanceTransactionBalanced (Wallet' utxo wal pending) (ShowBuildable partia
                     testTxLayer
                     (Cardano.AnyCardanoEra AlonzoEra)
                     (\_addr -> Just (rootK, mempty))
+                    -- FIXME! We'd need to sign using /different/ secret keys!
+                    -- Otherwise one witness will end up being used for all
+                    -- inputs.
+                    --
+                    -- We could also use the tx layer to manually account for
+                    -- the size of the remaining witnesses...
                     (rootK, mempty)
                     -- FIXME: Won't produce a witness! Property needs to be
                     -- strengthened by ensuring witnesses are added for all
@@ -2702,10 +2708,15 @@ prop_balanceTransactionBalanced (Wallet' utxo wal pending) (ShowBuildable partia
                     ]
             when (size > limit) $ Left msg
 
-    -- FIXME: TMP Hack; tweak generators instead?
+    -- NOTE: Here we change the input-resolution of the 'PartialTx' to be
+    -- consistent with the 'UTxO'. We may want to instead either
+    -- 1. Make generators generate consistent data (but requires
+    --  interdependency)
+    -- 2. Make `balanceTransaction` identify and fail when user-specified UTxOs
+    -- conflict with the wallet's UTxO set (but may be bad for
+    -- prop_balanceTransactionBalanced coverage)
     partialTx = PartialTx s ins' r
       where
-
         PartialTx s ins r = partialTx'
         utxo' = inputMapToUTxO $ UTxOIndex.toMap utxo
         ins' = flip map ins $ \(i,o,dh) ->
