@@ -1287,8 +1287,8 @@ mkTxSkeleton witness context skeleton = TxSkeleton
     -- Until we actually support minting and burning, leave these as empty.
     , txScripts = []
     , txAssetsToMintOrBurn = (<>)
-        (TokenMap.getAssets (view #txAssetsToMint context))
-        (TokenMap.getAssets (view #txAssetsToBurn context))
+        (TokenMap.getAssets (fst $ view #txAssetsToMint context))
+        (TokenMap.getAssets (fst $ view #txAssetsToBurn context))
     , txScriptExecutionCost = view #txPlutusScriptExecutionCost context
     }
 

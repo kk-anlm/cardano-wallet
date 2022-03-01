@@ -1543,8 +1543,8 @@ balanceTransaction
                 { txPlutusScriptExecutionCost
                 , txMetadata
                 , txWithdrawal
-                , txAssetsToMint
-                , txAssetsToBurn
+                , txAssetsToMint = (txAssetsToMint, Map.empty)
+                , txAssetsToBurn = (txAssetsToBurn, Map.empty)
                 , txCollateralRequirement =
                     if txPlutusScriptExecutionCost > Coin 0 then
                         SelectionCollateralRequired
@@ -2029,9 +2029,9 @@ selectAssets ctx pp params transform = do
             }
     let selectionParams = SelectionParams
             { assetsToMint =
-                params ^. (#txContext . #txAssetsToMint)
+                fst $ params ^. (#txContext . #txAssetsToMint)
             , assetsToBurn =
-                params ^. (#txContext . #txAssetsToBurn)
+                fst $ params ^. (#txContext . #txAssetsToBurn)
             , extraCoinIn = Coin 0
             , extraCoinOut = Coin 0
             , outputsToCover = params ^. #outputs
