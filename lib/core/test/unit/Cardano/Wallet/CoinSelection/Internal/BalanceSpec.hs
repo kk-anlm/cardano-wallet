@@ -2108,6 +2108,11 @@ unMockSelectionConstraints m = SelectionConstraints
         unMockComputeMinimumCost $ view #computeMinimumCost m
     , computeSelectionLimit =
         unMockComputeSelectionLimit $ view #computeSelectionLimit m
+    , maximumOutputAdaQuantity =
+        -- TODO: For the moment, return the same constant that is used in the
+        -- wallet. In future, we can improve our test coverage by allowing this
+        -- value to vary.
+        pure $ Coin 45_000_000_000_000_000
     }
 
 --------------------------------------------------------------------------------
