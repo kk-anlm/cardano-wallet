@@ -230,6 +230,10 @@ data SelectionConstraints = SelectionConstraints
         :: [(Address, TokenBundle)] -> SelectionLimit
         -- ^ Computes an upper bound for the number of ordinary inputs to
         -- select, given a current set of outputs.
+    , maximumOutputAdaQuantity
+        :: Coin
+        -- ^ Specifies the largest ada quantity that can appear in the token
+        -- bundle of an output.
     }
     deriving Generic
 

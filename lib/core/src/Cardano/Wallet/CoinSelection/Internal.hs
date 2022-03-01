@@ -175,6 +175,10 @@ data SelectionConstraints = SelectionConstraints
         :: Natural
         -- ^ Specifies the minimum required amount of collateral as a
         -- percentage of the total transaction fee.
+    , maximumOutputAdaQuantity
+        :: Coin
+        -- ^ Specifies the largest ada quantity that can appear in the token
+        -- bundle of an output.
     }
     deriving Generic
 
