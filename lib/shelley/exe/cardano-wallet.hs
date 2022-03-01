@@ -88,6 +88,8 @@ import Cardano.Wallet.Primitive.SyncProgress
     ( SyncTolerance )
 import Cardano.Wallet.Primitive.Types
     ( PoolMetadataSource (..), Settings (..), TokenMetadataServer (..) )
+import Cardano.Wallet.Primitive.Types.BlockchainSource
+    ( BlockchainSource (..) )
 import Cardano.Wallet.Shelley
     ( TracerSeverities
     , Tracers
@@ -98,7 +100,7 @@ import Cardano.Wallet.Shelley
     , tracerLabels
     )
 import Cardano.Wallet.Shelley.Launch
-    ( Mode
+    ( Mode (Light, Normal)
     , NetworkConfiguration (..)
     , modeFlag
     , networkConfigurationOption
@@ -150,6 +152,7 @@ import qualified Cardano.BM.Backend.EKGView as EKG
 import qualified Cardano.Wallet.Version as V
 import qualified Data.Text as T
 import qualified System.Info as I
+import qualified Cardano.Wallet.Shelley.Launch.Blockfrost as Blockfrost
 
 {-------------------------------------------------------------------------------
                               Main entry point
@@ -192,10 +195,9 @@ data ServeArgs = ServeArgs
     , _logging :: LoggingOptions TracerSeverities
     } deriving (Show)
 
-cmdServe
-    :: Mod CommandFields (IO ())
-cmdServe = command "serve" $ info (helper <*> helper' <*> cmd) $ mempty
-    <> progDesc "Serve API that listens for commands/actions."
+cmdServe :: Mod CommandFields (IO ())
+cmdServe = command "serve" $ info (helper <*> helper' <*> cmd) $
+    progDesc "Serve API that listens for commands/actions."
   where
     helper' = helperTracing tracerDescriptions
 
@@ -212,11 +214,11 @@ cmdServe = command "serve" $ info (helper <*> helper' <*> cmd) $ mempty
         <*> optional poolMetadataSourceOption
         <*> optional tokenMetadataSourceOption
         <*> loggingOptions tracerSeveritiesOption
-    exec
-        :: ServeArgs -> IO ()
+
+    exec :: ServeArgs -> IO ()
     exec args@(ServeArgs
       host
-      _mode
+      mode
       listen
       tlsConfig
       conn
@@ -226,34 +228,41 @@ cmdServe = command "serve" $ info (helper <*> helper' <*> cmd) $ mempty
       enableShutdownHandler
       poolMetadataFetching
       tokenMetadataServerURI
-      logOpt) = do
-        withTracers logOpt $ \tr tracers -> do
-            withShutdownHandlerMaybe tr enableShutdownHandler $ do
-                logDebug tr $ MsgServeArgs args
+      logOpt) = withTracers logOpt $ \tr tracers -> do
+        withShutdownHandlerMaybe tr enableShutdownHandler $ do
+            logDebug tr $ MsgServeArgs args
 
-                (discriminant, gp, vData, block0)
-                    <- runExceptT (parseGenesisData networkConfig) >>= \case
-                            Right x -> pure x
-                            Left err -> do
-                                logError tr (MsgFailedToParseGenesis $ T.pack err)
-                                exitWith $ ExitFailure 33
+            (discriminant, netParams, vData, block0)
+                <- runExceptT (parseGenesisData networkConfig) >>= \case
+                        Right x -> pure x
+                        Left err -> do
+                            logError tr (MsgFailedToParseGenesis $ T.pack err)
+                            exitWith $ ExitFailure 33
+            whenJust databaseDir $
+                setupDirectory (logInfo tr . MsgSetupDatabases)
 
-                whenJust databaseDir $ setupDirectory (logInfo tr . MsgSetupDatabases)
-                exitWith =<< serveWallet
-                    discriminant
-                    tracers
-                    sTolerance
-                    databaseDir
-                    Nothing
-                    host
-                    listen
-                    tlsConfig
-                    (fmap Settings poolMetadataFetching)
-                    tokenMetadataServerURI
-                    conn
-                    block0
-                    (gp, vData)
-                    (beforeMainLoop tr)
+            blockchainSource <- case mode of
+                Normal ->
+                    pure $ NodeSource conn netParams vData
+                Light (Just token) ->
+                    BlockfrostSource <$> Blockfrost.readToken token
+                Light Nothing ->
+                    exitWith $ ExitFailure 34 -- TODO: where are these codes catalogued?
+
+            exitWith =<< serveWallet
+                blockchainSource
+                discriminant
+                tracers
+                sTolerance
+                databaseDir
+                Nothing
+                host
+                listen
+                tlsConfig
+                (Settings <$> poolMetadataFetching)
+                tokenMetadataServerURI
+                block0
+                (beforeMainLoop tr)
 
     whenJust m fn = case m of
        Nothing -> pure ()

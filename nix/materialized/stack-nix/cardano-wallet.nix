@@ -107,6 +107,7 @@
           "Cardano/Wallet/Byron/Compatibility"
           "Cardano/Wallet/Shelley"
           "Cardano/Wallet/Shelley/Api/Server"
+          "Cardano/Wallet/Shelley/BlockchainSource"
           "Cardano/Wallet/Shelley/Compatibility"
           "Cardano/Wallet/Shelley/Compatibility/Ledger"
           "Cardano/Wallet/Shelley/Network"

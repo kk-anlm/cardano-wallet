@@ -3,7 +3,6 @@
 
 module Cardano.Wallet.Shelley.Launch.Blockfrost
     ( TokenFile
-    , Token
     , readToken
     , tokenFileOption
     ) where
@@ -20,8 +19,6 @@ import Options.Applicative
 newtype TokenFile = TokenFile FilePath
     deriving newtype (Eq, Show, Read)
 
-newtype Token = Token Project
-
 -- | --blockfrost-token-file FILE
 tokenFileOption :: Parser TokenFile
 tokenFileOption = option auto $ mconcat
@@ -33,5 +30,5 @@ tokenFileOption = option auto $ mconcat
         ]
     ]
 
-readToken :: TokenFile -> IO Token
-readToken (TokenFile fp) = Token <$> projectFromFile fp
+readToken :: TokenFile -> IO Project
+readToken (TokenFile fp) = projectFromFile fp

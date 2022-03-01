@@ -130,6 +130,8 @@ import Cardano.Wallet.Registry
     ( HasWorkerCtx (..), traceAfterThread )
 import Cardano.Wallet.Shelley.Api.Server
     ( server )
+import Cardano.Wallet.Shelley.BlockchainSource
+    ( BlockchainSource (..) )
 import Cardano.Wallet.Shelley.Compatibility
     ( CardanoBlock, HasNetworkId (..), StandardCrypto, fromCardanoBlock )
 import Cardano.Wallet.Shelley.Network
@@ -190,6 +192,7 @@ import UnliftIO.MVar
 import UnliftIO.STM
     ( newTVarIO )
 
+import qualified Blockfrost.Client as Blockfrost
 import qualified Cardano.Pool.DB.Sqlite as Pool
 import qualified Cardano.Wallet.Api.Server as Server
 import qualified Cardano.Wallet.DB.Sqlite as Sqlite
@@ -222,7 +225,9 @@ deriving instance Show SomeNetworkDiscriminant
 -- which was passed from the CLI and environment and starts all components of
 -- the wallet.
 serveWallet
-    :: SomeNetworkDiscriminant
+    :: BlockchainSource
+    -- ^ Source of the blockchain data
+    -> SomeNetworkDiscriminant
     -- ^ Proxy for the network discriminant
     -> Tracers IO
     -- ^ Logging config.
@@ -241,18 +246,43 @@ serveWallet
     -> Maybe Settings
     -- ^ Settings to be set at application start, will be written into DB.
     -> Maybe TokenMetadataServer
-    -> CardanoNodeConn
-    -- ^ Socket for communicating with the node
     -> Block
     -- ^ The genesis block, or some starting point.
-    -> ( NetworkParameters, NodeToClientVersionData)
-    -- ^ Network parameters needed to connect to the underlying network.
-    --
     -- See also: 'Cardano.Wallet.Shelley.Compatibility#KnownNetwork'.
     -> (URI -> IO ())
     -- ^ Callback to run before the main loop
     -> IO ExitCode
-serveWallet
+serveWallet = \case
+    NodeSource nodeConn netParams nodeToClientVersionData ->
+        serveWalletNode nodeConn netParams nodeToClientVersionData
+    BlockfrostSource blockfrostProject ->
+        serveWalletLight blockfrostProject
+
+-- | Starts wallet with cardano node as a blockchain data source
+serveWalletNode  ::
+    CardanoNodeConn
+    -- ^ Socket for communicating with the node
+    -> NetworkParameters
+    -- ^ Records the complete set of parameters
+    -- currently in use by the network that are relevant to the wallet.
+    -> NodeToClientVersionData
+    -> SomeNetworkDiscriminant
+    -> Tracers IO
+    -> SyncTolerance
+    -> Maybe FilePath
+    -> Maybe (Pool.DBDecorator IO)
+    -> HostPreference
+    -> Listen
+    -> Maybe TlsConfiguration
+    -> Maybe Settings
+    -> Maybe TokenMetadataServer
+    -> Block
+    -> (URI -> IO ())
+    -> IO ExitCode
+serveWalletNode
+  conn
+  np
+  vData
   (SomeNetworkDiscriminant proxy)
   Tracers{..}
   sTolerance
@@ -263,9 +293,7 @@ serveWallet
   tlsConfig
   settings
   tokenMetaUri
-  conn
   block0
-  (np, vData)
   beforeMainLoop = do
     let ntwrk = networkDiscriminantValFromProxy proxy
     traceWith applicationTracer $ MsgStarting conn
@@ -288,8 +316,7 @@ serveWallet
                     (Server.manageRewardBalance proxy)
 
                 let txLayerUdefined = error "TO-DO in ADP-686"
-                multisigApi <- apiLayer txLayerUdefined nl
-                    Server.idleWorker
+                multisigApi <- apiLayer txLayerUdefined nl Server.idleWorker
 
                 withPoolsMonitoring databaseDir np nl $ \spl -> do
                     startServer
@@ -439,6 +466,23 @@ serveWallet
     handleApiServerStartupError err = do
         traceWith applicationTracer $ MsgServerStartupError err
         pure $ ExitFailure $ exitCodeApiServer err
+
+serveWalletLight ::
+    Blockfrost.Project
+    -> SomeNetworkDiscriminant
+    -> Tracers IO
+    -> SyncTolerance
+    -> Maybe FilePath
+    -> Maybe (Pool.DBDecorator IO)
+    -> HostPreference
+    -> Listen
+    -> Maybe TlsConfiguration
+    -> Maybe Settings
+    -> Maybe TokenMetadataServer
+    -> Block
+    -> (URI -> IO ())
+    -> IO ExitCode
+serveWalletLight = error "not implemented"
 
 -- | Failure status codes for HTTP API server errors.
 exitCodeApiServer :: ListenError -> Int
