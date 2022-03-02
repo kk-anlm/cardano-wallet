@@ -174,7 +174,7 @@ import Cardano.Wallet.Transaction
     , withdrawalToCoin
     )
 import Cardano.Wallet.Util
-    ( modifyM )
+    ( internalError, modifyM )
 import Codec.Serialise
     ( deserialiseOrFail )
 import Control.Arrow
@@ -326,13 +326,25 @@ constructUnsignedTx
     -- ^ Finalized asset selection
     -> Coin
     -- ^ Explicit fee amount
+    -> (TokenMap, Map AssetId (Script KeyHash))
+    -- ^ Assets to be minted
+    -> (TokenMap, Map AssetId (Script KeyHash))
+    -- ^ Assets to be burnt
     -> ShelleyBasedEra era
     -> Either ErrMkTransaction SealedTx
-constructUnsignedTx networkId (md, certs) ttl rewardAcnt wdrl cs fee era =
+constructUnsignedTx networkId (md, certs) ttl rewardAcnt wdrl cs fee toMint toBurn era =
     sealedTxFromCardanoBody <$> tx
   where
     tx = mkUnsignedTx era ttl cs md wdrls certs (toCardanoLovelace fee)
     wdrls = mkWithdrawals networkId rewardAcnt wdrl
+    allScripts = Map.union (snd toMint) (snd toBurn)
+    decorateWithScript (assetId, quantity) =
+        case Map.lookup assetId allScripts of
+            Just script -> (assetId, quantity, script)
+            Nothing -> internalError "constructUnsignedTx: each assetId at this point should have accompanying script"
+    extractData = map decorateWithScript . TokenMap.toFlatList . fst
+    mintData = extractData toMint
+    burnData = extractData toBurn
 
 mkTx
     :: forall k era.
@@ -528,19 +540,21 @@ newTransactionLayer networkId = TransactionLayer
         let wdrl  = withdrawalToCoin $ view #txWithdrawal ctx
         let delta = selectionDelta txOutCoin selection
         let rewardAcct = toRewardAccountRaw stakeXPub
+        let assetsToBeMinted = view #txAssetsToMint ctx
+        let assetsToBeBurnt = view #txAssetsToBurn ctx
         case view #txDelegationAction ctx of
             Nothing -> do
                 withShelleyBasedEra era $ do
                     let md = view #txMetadata ctx
                     constructUnsignedTx networkId (md, []) ttl rewardAcct wdrl
-                        selection delta
+                        selection delta assetsToBeMinted assetsToBeBurnt
 
             Just action -> do
                 withShelleyBasedEra era $ do
                     let certs = mkDelegationCertificates action stakeXPub
                     let payload = (view #txMetadata ctx, certs)
                     constructUnsignedTx networkId payload ttl rewardAcct wdrl
-                        selection delta
+                        selection delta assetsToBeMinted assetsToBeBurnt
 
     , calcMinimumCost = \pp ctx skeleton ->
         estimateTxCost pp (mkTxSkeleton (txWitnessTagFor @k) ctx skeleton)
