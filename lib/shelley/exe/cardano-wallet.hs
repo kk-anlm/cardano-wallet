@@ -88,8 +88,6 @@ import Cardano.Wallet.Primitive.SyncProgress
     ( SyncTolerance )
 import Cardano.Wallet.Primitive.Types
     ( PoolMetadataSource (..), Settings (..), TokenMetadataServer (..) )
-import Cardano.Wallet.Primitive.Types.BlockchainSource
-    ( BlockchainSource (..) )
 import Cardano.Wallet.Shelley
     ( TracerSeverities
     , Tracers
@@ -99,6 +97,8 @@ import Cardano.Wallet.Shelley
     , tracerDescriptions
     , tracerLabels
     )
+import Cardano.Wallet.Shelley.BlockchainSource
+    ( BlockchainSource (..) )
 import Cardano.Wallet.Shelley.Launch
     ( Mode (Light, Normal)
     , NetworkConfiguration (..)
