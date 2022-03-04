@@ -25,7 +25,7 @@ tokenFileOption = option auto $ mconcat
     [ long "blockfrost-token-file"
     , metavar "FILE"
     , help $ mconcat
-        [ "FILE contains an authentication token token for "
+        [ "FILE contains an authentication token for "
         , "BlockFrost Cardano API (https://blockfrost.io)."
         ]
     ]
