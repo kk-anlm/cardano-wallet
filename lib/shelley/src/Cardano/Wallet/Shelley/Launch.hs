@@ -79,7 +79,17 @@ import Data.Text.Class
 import GHC.TypeLits
     ( KnownNat, Nat, SomeNat (..), someNatVal )
 import Options.Applicative
-    ( Parser, eitherReader, flag, flag', help, long, metavar, option, (<|>), optional )
+    ( Parser
+    , eitherReader
+    , flag
+    , flag'
+    , help
+    , long
+    , metavar
+    , option
+    , optional
+    , (<|>)
+    )
 import Ouroboros.Network.Magic
     ( NetworkMagic (..) )
 import Ouroboros.Network.NodeToClient

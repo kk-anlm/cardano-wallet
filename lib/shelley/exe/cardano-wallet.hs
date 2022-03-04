@@ -149,10 +149,10 @@ import UnliftIO.Exception
     ( withException )
 
 import qualified Cardano.BM.Backend.EKGView as EKG
+import qualified Cardano.Wallet.Shelley.Launch.Blockfrost as Blockfrost
 import qualified Cardano.Wallet.Version as V
 import qualified Data.Text as T
 import qualified System.Info as I
-import qualified Cardano.Wallet.Shelley.Launch.Blockfrost as Blockfrost
 
 {-------------------------------------------------------------------------------
                               Main entry point
