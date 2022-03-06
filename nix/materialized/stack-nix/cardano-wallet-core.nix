@@ -481,4 +481,6 @@
           };
         };
       };
-    } // rec { src = (pkgs.lib).mkDefault ./lib/core; }
+    } // rec {
+    src = (pkgs.lib).mkDefault ./lib/core;
+    }
