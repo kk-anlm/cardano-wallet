@@ -1543,8 +1543,8 @@ balanceTransaction
                 { txPlutusScriptExecutionCost
                 , txMetadata
                 , txWithdrawal
-                , txAssetsToMint = (txAssetsToMint, Map.empty)
-                , txAssetsToBurn = (txAssetsToBurn, Map.empty)
+                , txAssetsToMint = (txAssetsToMint ^. #txTokenMap, Map.empty)
+                , txAssetsToBurn = (txAssetsToBurn ^. #txTokenMap, Map.empty)
                 , txCollateralRequirement =
                     if txPlutusScriptExecutionCost > Coin 0 then
                         SelectionCollateralRequired

@@ -170,6 +170,7 @@ import Cardano.Wallet.Transaction
     , ErrAssignRedeemers (..)
     , ErrMkTransaction (..)
     , ErrUpdateSealedTx (..)
+    , TokenMapWithScripts
     , TransactionCtx (..)
     , TransactionLayer (..)
     , TxFeeUpdate (..)
@@ -585,7 +586,9 @@ newTransactionLayer networkId = TransactionLayer
     , updateTx = updateSealedTx
     }
 
-_decodeSealedTx :: SealedTx -> (Tx, TokenMap, TokenMap, [Certificate])
+_decodeSealedTx
+    :: SealedTx
+    -> (Tx, TokenMapWithScripts, TokenMapWithScripts, [Certificate])
 _decodeSealedTx (cardanoTx -> InAnyCardanoEra _era tx) = fromCardanoTx tx
 
 _evaluateTransactionBalance
