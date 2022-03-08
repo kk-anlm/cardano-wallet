@@ -23,7 +23,7 @@ import Test.Hspec
 import Test.Hspec.Extra
     ( parallel )
 import Test.QuickCheck
-    ( Arbitrary (..), arbitrarySizedIntegral )
+    ( Arbitrary (..), arbitrarySizedIntegral, oneof )
 import Test.QuickCheck.Classes
     ( eqLaws
     , monoidLaws
@@ -57,4 +57,7 @@ instance Arbitrary a => Arbitrary (NonEmpty a) where
     arbitrary = (:|) <$> arbitrary <*> arbitrary
 
 instance Arbitrary Value where
-    arbitrary = Value . fromIntegral . abs <$> arbitrarySizedIntegral @Int
+    arbitrary = Value . fromIntegral . abs <$> oneof
+        [ pure 0
+        , arbitrarySizedIntegral @Int
+        ]

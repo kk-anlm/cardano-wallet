@@ -18,7 +18,7 @@ import Data.Proxy
 import Numeric.Natural
     ( Natural )
 import Test.QuickCheck
-    ( Arbitrary, property )
+    ( Arbitrary, Property, checkCoverage, cover, property )
 import Test.QuickCheck.Classes
     ( Laws (..) )
 
@@ -35,6 +35,10 @@ class Partition a where
 -- Laws
 --------------------------------------------------------------------------------
 
+-- think about how to separate coverage from statements of laws.
+-- we want to have clear statements of laws.
+-- we want to avoid cluttering them up with coverage checks.
+--
 partitionLaws
     :: forall a.
         ( Arbitrary a
@@ -58,10 +62,30 @@ partitionLaw_length a as =
     ((== length as) . length . snd)
     (partition a as)
 
-partitionLaw_sum :: (Eq a, Monoid a, Partition a) => a -> NonEmpty a -> Bool
-partitionLaw_sum a as =
-    (\(r, rs) -> r <> F.fold rs == a)
+partitionLaw_length' :: a -> NonEmpty a -> (a, NonEmpty a) -> Bool
+partitionLaw_length' a as (r, rs) =
+    (length as == length rs)
+
+partitionLaw_sum :: (Eq a, Monoid a, Partition a) => a -> NonEmpty a -> Property
+partitionLaw_sum a as = property $
+    (\(r, rs) ->
+        checkCoverage $
+        cover 1
+            (r == mempty && F.fold rs == mempty)
+            "    empty remainder and     empty partition" $
+        cover 1
+            (r == mempty && F.fold rs /= mempty)
+            "    empty remainder and non-empty partition" $
+        cover 1
+            (r /= mempty && F.fold rs == mempty)
+            "non-empty remainder and     empty partition" $
+        cover 0
+            (r /= mempty && F.fold rs /= mempty)
+            "non-empty remainder and non-empty partition" $
+        r <> F.fold rs == a)
     (partition a as)
+
+makeProperty f p = (\(r, rs) -> checkCoverage $ f (r, rs)) p
 
 --------------------------------------------------------------------------------
 -- Instances

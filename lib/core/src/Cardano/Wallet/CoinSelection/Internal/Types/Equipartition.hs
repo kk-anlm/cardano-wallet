@@ -21,7 +21,7 @@ import Numeric.Natural
 import Safe
     ( tailMay )
 import Test.QuickCheck
-    ( Arbitrary, property )
+    ( Arbitrary, Property, checkCoverage, cover, property )
 import Test.QuickCheck.Classes
     ( Laws (..) )
 
@@ -66,8 +66,11 @@ equipartitionLaws _ = Laws "Equipartition"
     ]
 
 equipartitionLaw_distance
-    :: Equipartition a => a -> NonEmpty void -> Bool
-equipartitionLaw_distance a count =
+    :: Equipartition a => a -> NonEmpty void -> Property --Bool
+equipartitionLaw_distance a count = property $
+    checkCoverage $
+    cover  2 (length count == 1) "count == 1" $
+    cover 10 (length count >  1) "count >  1" $
     (\(r :| rs) -> F.all ((<= 1) . equipartitionDistance r) rs)
     (equipartition a count)
 
