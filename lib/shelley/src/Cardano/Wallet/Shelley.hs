@@ -1,6 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
@@ -28,44 +27,18 @@
 module Cardano.Wallet.Shelley
     ( SomeNetworkDiscriminant (..)
     , serveWallet
-
-      -- * Tracing
-    , Tracers' (..)
-    , Tracers
-    , TracerSeverities
-    , tracerLabels
-    , tracerDescriptions
-    , setupTracers
-    , tracerSeverities
-    , nullTracers
-
-      -- * Logs
-    , ApplicationLog (..)
+    , module Logging
+    , module Tracers
     ) where
 
 import Prelude
 
-import Cardano.BM.Data.Severity
-    ( Severity (..) )
-import Cardano.BM.Data.Tracer
-    ( HasPrivacyAnnotation (..), HasSeverityAnnotation (..), filterSeverity )
-import Cardano.BM.Trace
-    ( Trace, appendName, nullTracer )
-import Cardano.Launcher.Node
-    ( CardanoNodeConn )
 import Cardano.Pool.DB
     ( DBLayer (..) )
-import Cardano.Pool.DB.Log
-    ( PoolDbLog )
 import Cardano.Wallet.Api
     ( ApiLayer, ApiV2 )
 import Cardano.Wallet.Api.Server
-    ( HostPreference
-    , Listen (..)
-    , ListenError (..)
-    , TlsConfiguration
-    , WalletEngineLog
-    )
+    ( HostPreference, Listen (..), ListenError (..), TlsConfiguration )
 import Cardano.Wallet.Api.Types
     ( ApiStakePool
     , DecodeAddress
@@ -74,9 +47,7 @@ import Cardano.Wallet.Api.Types
     , EncodeStakeAddress
     )
 import Cardano.Wallet.DB.Sqlite
-    ( DBFactoryLog, DefaultFieldValues (..), PersistAddressBook )
-import Cardano.Wallet.Logging
-    ( trMessageText )
+    ( DefaultFieldValues (..), PersistAddressBook )
 import Cardano.Wallet.Network
     ( NetworkLayer (..) )
 import Cardano.Wallet.Primitive.AddressDerivation
@@ -136,6 +107,8 @@ import Cardano.Wallet.Shelley.BlockchainSource
     ( BlockchainSource (..) )
 import Cardano.Wallet.Shelley.Compatibility
     ( CardanoBlock, HasNetworkId (..), StandardCrypto, fromCardanoBlock )
+import Cardano.Wallet.Shelley.Logging as Logging
+    ( ApplicationLog (..) )
 import Cardano.Wallet.Shelley.Network
     ( NetworkLayerLog, withNetworkLayer )
 import Cardano.Wallet.Shelley.Pools
@@ -145,14 +118,22 @@ import Cardano.Wallet.Shelley.Pools
     , monitorStakePools
     , newStakePoolLayer
     )
+import Cardano.Wallet.Shelley.Tracers as Tracers
+    ( TracerSeverities
+    , Tracers
+    , Tracers' (..)
+    , nullTracers
+    , setupTracers
+    , tracerDescriptions
+    , tracerLabels
+    , tracerSeverities
+    )
 import Cardano.Wallet.Shelley.Transaction
     ( newTransactionLayer )
 import Cardano.Wallet.TokenMetadata
-    ( TokenMetadataLog, newMetadataClient )
+    ( newMetadataClient )
 import Cardano.Wallet.Transaction
     ( TransactionLayer )
-import Control.Applicative
-    ( Const (..) )
 import Control.Monad
     ( forM_, void, (>=>) )
 import Control.Monad.Trans.Class
@@ -169,22 +150,16 @@ import Data.Proxy
     ( Proxy (..) )
 import Data.Text
     ( Text )
-import Data.Text.Class
-    ( ToText (..) )
-import GHC.Generics
-    ( Generic )
 import GHC.Stack
     ( HasCallStack )
 import Network.Ntp
-    ( NtpClient (..), NtpTrace, withWalletNtpClient )
+    ( NtpClient (..), withWalletNtpClient )
 import Network.Socket
     ( Socket, getSocketName )
 import Network.URI
-    ( URI (..), parseURI, uriToString )
+    ( URI (..), parseURI )
 import Network.Wai.Handler.Warp
     ( setBeforeMainLoop )
-import Network.Wai.Middleware.Logging
-    ( ApiLog (..) )
 import System.Exit
     ( ExitCode (..) )
 import System.IOManager
@@ -198,12 +173,10 @@ import UnliftIO.MVar
 import UnliftIO.STM
     ( newTVarIO )
 
-import qualified Blockfrost.Client as Blockfrost
 import qualified Cardano.Api.Shelley as Cardano
 import qualified Cardano.Pool.DB.Sqlite as Pool
 import qualified Cardano.Wallet.Api.Server as Server
 import qualified Cardano.Wallet.DB.Sqlite as Sqlite
-import qualified Data.Text as T
 import qualified Network.Wai.Handler.Warp as Warp
 
 -- | Encapsulate a network discriminant and the necessary constraints it should
@@ -264,7 +237,11 @@ serveWallet
     -> IO ExitCode
 serveWallet
   blockchainSrc
-  netParams
+  netParams@NetworkParameters
+    { protocolParameters
+    , genesisParameters
+    , slottingParameters
+    }
   (SomeNetworkDiscriminant proxyNetwork)
   Tracers{..}
   sTolerance
@@ -276,38 +253,37 @@ serveWallet
   settings
   tokenMetaUri
   block0
-  beforeMainLoop = do
-    case blockchainSrc of
-        NodeSource nodeConn _ -> traceApp $ MsgStartingNode nodeConn
-        BlockfrostSource project -> traceApp $ MsgStartingLite project
-    traceApp $ MsgNetworkName $ networkName proxyNetwork
-    serveApp
-  where
-    traceApp = traceWith applicationTracer
+  beforeMainLoop = evalContT $ do
+    lift $ case blockchainSrc of
+        NodeSource nodeConn _ -> trace $ MsgStartingNode nodeConn
+        BlockfrostSource project -> trace $ MsgStartingLite project
+    lift . trace $ MsgNetworkName $ networkName proxyNetwork
+    netLayer <- withNetLayer blockchainSrc networkTracer net sTolerance
+    dbLayer <- withDbLayer netLayer
+    stakePoolLayer <- withStakePoolLayer dbLayer netLayer
+    randomApi <- withRandomApi netLayer
+    icarusApi  <- withIcarusApi netLayer
+    shelleyApi <- withShelleyApi netLayer
+    multisigApi <- withMultisigApi netLayer
+    ntpClient <- withNtpClient
+    bindSocket >>= lift . \case
+        Left err -> do
+            trace $ MsgServerStartupError err
+            pure $ ExitFailure $ exitCodeApiServer err
+        Right (_port, socket) -> do
+            startServer
+                proxyNetwork
+                socket
+                randomApi
+                icarusApi
+                shelleyApi
+                multisigApi
+                stakePoolLayer
+                ntpClient
+            pure ExitSuccess
 
-    serveApp = evalContT $ do
-        netLayer <- withNetLayer blockchainSrc networkTracer net sTolerance
-        dbLayer <- withDbLayer netLayer
-        stakePoolLayer <- withStakePoolLayer dbLayer netLayer
-        randomApi <- withRandomApi netLayer
-        icarusApi  <- withIcarusApi netLayer
-        shelleyApi <- withShelleyApi netLayer
-        multisigApi <- withMultisigApi netLayer
-        ntpClient <- withNtpClient
-        bindSocket >>= lift . \case
-            Left err -> do
-                traceWith applicationTracer $ MsgServerStartupError err
-                pure $ ExitFailure $ exitCodeApiServer err
-            Right (_, socket) ->
-                ExitSuccess <$ startServer
-                    proxyNetwork
-                    socket
-                    randomApi
-                    icarusApi
-                    shelleyApi
-                    multisigApi
-                    stakePoolLayer
-                    ntpClient
+  where
+    trace = traceWith applicationTracer
 
     net = networkIdVal proxyNetwork
 
@@ -375,12 +351,11 @@ serveWallet
         -> IO ()
     startServer _proxy socket byron icarus shelley multisig spl ntp = do
         serverUrl <- getServerUrl tlsConfig socket
-        let serverSettings = Warp.defaultSettings & setBeforeMainLoop
-                (beforeMainLoop serverUrl)
+        let settings = Warp.defaultSettings
+                & setBeforeMainLoop (beforeMainLoop serverUrl)
         let application = Server.serve (Proxy @(ApiV2 n ApiStakePool)) $
                 server byron icarus shelley multisig spl ntp
-        Server.start serverSettings apiServerTracer tlsConfig socket application
-
+        Server.start settings apiServerTracer tlsConfig socket application
     withDbLayer netLayer =
         ContT $ Pool.withDecoratedDBLayer
             (fromMaybe Pool.undecoratedDB mPoolDatabaseDecorator)
@@ -419,7 +394,6 @@ serveWallet
         -> (WorkerCtx (ApiLayer s k) -> WalletId -> IO ())
         -> IO (ApiLayer s k)
     apiLayer txLayer netLayer coworker = do
-        let params = (block0, netParams, sTolerance)
         tokenMetaClient <- newMetadataClient tokenMetadataTracer tokenMetaUri
         dbFactory <- Sqlite.newDBFactory
             walletDbTracer
@@ -427,7 +401,7 @@ serveWallet
                 { defaultActiveSlotCoefficient =
                     getActiveSlotCoefficient slottingParameters
                 , defaultDesiredNumberOfPool =
-                    desiredNumberOfStakePools protoParams
+                    desiredNumberOfStakePools protocolParameters
                 , defaultMinimumUTxOValue = Coin 0
                     -- Unused; value does not matter anymore.
                 , defaultHardforkEpoch = Nothing
@@ -464,17 +438,12 @@ serveWallet
             databaseDir
         Server.newApiLayer
             walletEngineTracer
-            params
-            netLayer'
+            (block0, netParams, sTolerance)
+            (fromCardanoBlock genesisParameters <$> netLayer)
             txLayer
             dbFactory
             tokenMetaClient
             coworker
-      where
-        NetworkParameters genesisParams slottingParameters protoParams =
-            netParams
-        netLayer' = fromCardanoBlock genesisParams <$> netLayer
-
 
 networkName :: forall n. NetworkDiscriminantVal n => Proxy n -> Text
 networkName _ = networkDiscriminantVal @n
@@ -488,200 +457,7 @@ exitCodeApiServer = \case
     ListenErrorOperationNotPermitted -> 13
 
 getServerUrl :: Maybe TlsConfiguration -> Socket -> IO URI
-getServerUrl tlsConfig = fmap (fromJust . parseURI . uri) . getSocketName
+getServerUrl tlsConfig = (fromJust . parseURI . uri <$>) . getSocketName
   where
     uri addr = scheme <> "://" <> show addr <> "/"
-    scheme = case tlsConfig of
-                Just _ -> "https"
-                Nothing -> "http"
-
-{-------------------------------------------------------------------------------
-                                    Logging
--------------------------------------------------------------------------------}
-
--- | Log messages related to application startup and shutdown.
-data ApplicationLog
-    = MsgStartingNode CardanoNodeConn
-    | MsgStartingLite Blockfrost.Project
-    | MsgNetworkName Text
-    | MsgServerStartupError ListenError
-    | MsgFailedConnectSMASH URI
-    deriving (Generic, Show, Eq)
-
-instance ToText ApplicationLog where
-    toText = \case
-        MsgStartingNode conn ->
-            "Wallet backend server starting. Using " <> toText conn <> "."
-        MsgStartingLite Blockfrost.Project{..} ->
-            "Wallet backend server starting. Using lite mode: Blockfrost, " <>
-            T.pack (show projectEnv) <> "."
-        MsgNetworkName network ->
-            "Node is Haskell Node on " <> network <> "."
-        MsgServerStartupError startupErr -> case startupErr of
-            ListenErrorHostDoesNotExist host -> mempty
-                <> "Can't listen on "
-                <> T.pack (show host)
-                <> ". It does not exist."
-            ListenErrorInvalidAddress host -> mempty
-                <> "Can't listen on "
-                <> T.pack (show host)
-                <> ". Invalid address."
-            ListenErrorAddressAlreadyInUse mPort -> mempty
-                <> "The API server listen port "
-                <> maybe "(unknown)" (T.pack . show) mPort
-                <> " is already in use."
-            ListenErrorOperationNotPermitted -> mempty
-                <> "Cannot listen on the given port. "
-                <> "The operation is not permitted."
-        MsgFailedConnectSMASH uri -> T.unwords
-            [ "Failed connect to the given smash server or validate a healthy status."
-            , "SMASH uri was: "
-            , T.pack $ uriToString id uri ""
-            ]
-
-instance HasPrivacyAnnotation ApplicationLog
-instance HasSeverityAnnotation ApplicationLog where
-    getSeverityAnnotation = \case
-        MsgStartingNode _ -> Info
-        MsgStartingLite _ -> Info
-        MsgNetworkName _ -> Info
-        MsgServerStartupError _ -> Alert
-        MsgFailedConnectSMASH _ -> Warning
-
-{-------------------------------------------------------------------------------
-                                    Tracers
--------------------------------------------------------------------------------}
-
--- | The types of trace events produced by the Shelley API server.
-data Tracers' f = Tracers
-    { applicationTracer   :: f ApplicationLog
-    , apiServerTracer     :: f ApiLog
-    , tokenMetadataTracer :: f TokenMetadataLog
-    , walletEngineTracer  :: f WalletEngineLog
-    , walletDbTracer      :: f DBFactoryLog
-    , poolsEngineTracer   :: f StakePoolLog
-    , poolsDbTracer       :: f PoolDbLog
-    , ntpClientTracer     :: f NtpTrace
-    , networkTracer       :: f NetworkLayerLog
-    }
-
--- | All of the Shelley 'Tracer's.
-type Tracers m = Tracers' (Tracer m)
-
--- | The minimum severities for 'Tracers'. 'Nothing' indicates that tracing is
--- completely disabled.
-type TracerSeverities = Tracers' (Const (Maybe Severity))
-
-deriving instance Show TracerSeverities
-deriving instance Eq TracerSeverities
-
--- | Construct a 'TracerSeverities' record with all tracers set to the given
--- severity.
-tracerSeverities :: Maybe Severity -> TracerSeverities
-tracerSeverities sev = Tracers
-    { applicationTracer   = Const sev
-    , apiServerTracer     = Const sev
-    , tokenMetadataTracer = Const sev
-    , walletDbTracer      = Const sev
-    , walletEngineTracer  = Const sev
-    , poolsEngineTracer   = Const sev
-    , poolsDbTracer       = Const sev
-    , ntpClientTracer     = Const sev
-    , networkTracer       = Const sev
-    }
-
--- | Set up tracing with textual log messages.
-setupTracers
-    :: TracerSeverities
-    -> Trace IO Text
-    -> Tracers IO
-setupTracers sev tr = Tracers
-    { applicationTracer   = onoff applicationTracer   $ mkTrace applicationTracer   tr
-    , apiServerTracer     = onoff apiServerTracer     $ mkTrace apiServerTracer     tr
-    , tokenMetadataTracer = onoff tokenMetadataTracer $ mkTrace tokenMetadataTracer tr
-    , walletEngineTracer  = onoff walletEngineTracer  $ mkTrace walletEngineTracer  tr
-    , walletDbTracer      = onoff walletDbTracer      $ mkTrace walletDbTracer      tr
-    , poolsEngineTracer   = onoff poolsEngineTracer   $ mkTrace poolsEngineTracer   tr
-    , poolsDbTracer       = onoff poolsDbTracer       $ mkTrace poolsDbTracer       tr
-    , ntpClientTracer     = onoff ntpClientTracer     $ mkTrace ntpClientTracer     tr
-    , networkTracer       = onoff networkTracer       $ mkTrace networkTracer       tr
-    }
-  where
-    onoff
-        :: forall m a b. (Monad m, HasSeverityAnnotation b)
-        => (TracerSeverities -> Const (Maybe Severity) a)
-        -> Tracer m b
-        -> Tracer m b
-    onoff f = case getConst (f sev) of
-        Nothing -> const nullTracer
-        Just s -> filterSeverity (const $ pure s)
-
-    mkTrace
-        :: (HasPrivacyAnnotation a, HasSeverityAnnotation a, ToText a)
-        => (Tracers' (Const Text) -> Const Text a)
-        -> Trace IO Text
-        -> Tracer IO a
-    mkTrace f =
-        trMessageText . appendName (getConst $ f tracerLabels)
-
--- | Strings that the user can refer to tracers by.
-tracerLabels :: Tracers' (Const Text)
-tracerLabels = Tracers
-    { applicationTracer   = Const "application"
-    , apiServerTracer     = Const "api-server"
-    , tokenMetadataTracer = Const "token-metadata"
-    , walletEngineTracer  = Const "wallet-engine"
-    , walletDbTracer      = Const "wallet-db"
-    , poolsEngineTracer   = Const "pools-engine"
-    , poolsDbTracer       = Const "pools-db"
-    , ntpClientTracer     = Const "ntp-client"
-    , networkTracer       = Const "network"
-    }
-
--- | Names and descriptions of the tracers, for user documentation.
-tracerDescriptions :: [(String, String)]
-tracerDescriptions =
-    [ ( lbl applicationTracer
-      , "About start-up logic and the server's surroundings."
-      )
-    , ( lbl apiServerTracer
-      , "About the HTTP API requests and responses."
-      )
-    , ( lbl walletEngineTracer
-      , "About background wallet workers events and core wallet engine."
-      )
-    , ( lbl walletDbTracer
-      , "About database operations of each wallet."
-      )
-    , ( lbl tokenMetadataTracer
-      , "About the fetching of token metadata."
-      )
-    , ( lbl poolsEngineTracer
-      , "About the background worker monitoring stake pools and stake pools engine."
-      )
-    , ( lbl poolsDbTracer
-      , "About database operations on stake pools."
-      )
-    , ( lbl ntpClientTracer
-      , "About ntp-client."
-      )
-    , ( lbl networkTracer
-      , "About network communication with the node."
-      )
-    ]
-  where
-    lbl f = T.unpack . getConst . f $ tracerLabels
-
--- | Use a 'nullTracer' for each of the 'Tracer's in 'Tracers'
-nullTracers :: Monad m => Tracers m
-nullTracers = Tracers
-    { applicationTracer   = nullTracer
-    , apiServerTracer     = nullTracer
-    , tokenMetadataTracer = nullTracer
-    , walletEngineTracer  = nullTracer
-    , walletDbTracer      = nullTracer
-    , poolsEngineTracer   = nullTracer
-    , poolsDbTracer       = nullTracer
-    , ntpClientTracer     = nullTracer
-    , networkTracer       = nullTracer
-    }
+    scheme = maybe "http" (const "https") tlsConfig
