@@ -1294,6 +1294,8 @@ dummyTransactionLayer = TransactionLayer
         error "dummyTransactionLayer: assignScriptRedeemers not implemented"
     , evaluateMinimumFee =
         error "dummyTransactionLayer: evaluateMinimumFee not implemented"
+    , evaluateTransactionSize =
+        error "dummyTransactionLayer: evaluateTransactionSize not implemented"
     , evaluateTransactionBalance =
         error "dummyTransactionLayer: dummyTransactionLayer not implemented"
     , computeSelectionLimit =
@@ -1353,7 +1355,7 @@ instance Sqlite.AddressBookIso DummyState where
 instance Eq (Sqlite.Prologue DummyState) where _ == _ = True
 instance Eq (Sqlite.Discoveries DummyState) where
     DummyDiscoveries a == DummyDiscoveries b = a == b
- 
+
 instance Sqlite.PersistAddressBook DummyState where
     insertPrologue _ _ = error "DummyState.insertPrologue: not implemented"
     insertDiscoveries _ _ _ = error "DummyState.insertDiscoveries: not implemented"
