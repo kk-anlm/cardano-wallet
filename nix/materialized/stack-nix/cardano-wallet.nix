@@ -115,7 +115,9 @@
           "Cardano/Wallet/Shelley/Launch"
           "Cardano/Wallet/Shelley/Launch/Blockfrost"
           "Cardano/Wallet/Shelley/Launch/Cluster"
+          "Cardano/Wallet/Shelley/Logging"
           "Cardano/Wallet/Shelley/Pools"
+          "Cardano/Wallet/Shelley/Tracers"
           ];
         hsSourceDirs = [ "src" ];
         };
