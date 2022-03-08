@@ -285,17 +285,17 @@ serveWallet
             pure ExitSuccess
 
   where
+    trace :: ApplicationLog -> IO ()
     trace = traceWith applicationTracer
 
+    net :: Cardano.NetworkId
     net = networkIdVal proxyNetwork
 
     withNetLayer
         :: HasCallStack
         => BlockchainSource
         -> Tracer IO NetworkLayerLog
-        -- ^ Logging of network layer startup
         -> Cardano.NetworkId
-        -- ^ NetworkId for local node connection
         -> SyncTolerance
         -> ContT r IO (NetworkLayer IO (CardanoBlock StandardCrypto) )
     withNetLayer blockchainSrc tr net tol =
@@ -305,8 +305,8 @@ serveWallet
             BlockfrostSource pr ->
                 withBlockfrostNetworkLayer
 
-    bindSocket =
-        ContT $ Server.withListeningSocket hostPref listen
+    bindSocket :: ContT r IO (Either ListenError (Warp.Port, Socket))
+    bindSocket = ContT $ Server.withListeningSocket hostPref listen
 
     withRandomApi netLayer =
         lift $ apiLayer (newTransactionLayer net) netLayer Server.idleWorker
@@ -326,6 +326,7 @@ serveWallet
         (NetworkLayer IO (CardanoBlock StandardCrypto) -> IO a) -> IO a
     withBlockfrostNetworkLayer = error "not implemented"
 
+    withNtpClient :: ContT r IO NtpClient
     withNtpClient = do
         iom <- ContT withIOManager
         ContT $ withWalletNtpClient iom ntpClientTracer
@@ -366,6 +367,10 @@ serveWallet
             (neverFails "withPoolsMonitoring never forecasts into the future" $
                 timeInterpreter netLayer)
 
+    withStakePoolLayer
+        :: DBLayer IO
+        -> NetworkLayer IO (CardanoBlock StandardCrypto)
+        -> ContT ExitCode IO StakePoolLayer
     withStakePoolLayer dbLayer@DBLayer{..} netLayer = lift $ do
         gcStatus <- newTVarIO NotStarted
         forM_ settings $ atomically . putSettings
