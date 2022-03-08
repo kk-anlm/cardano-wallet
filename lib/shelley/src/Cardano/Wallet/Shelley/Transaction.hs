@@ -659,13 +659,13 @@ _evaluateTransactionBalance tx pp utxo extraUTxO = do
         Cardano.TxOutAdaOnly _ ada -> Cardano.lovelaceToValue ada
         Cardano.TxOutValue _ val   -> val
 
-    withShelleyBasedBody
-        :: Cardano.InAnyShelleyBasedEra Cardano.Tx
-        -> (forall era. IsShelleyBasedEra era
-            => ShelleyBasedEra era -> Cardano.TxBody era -> a)
-        -> a
-    withShelleyBasedBody (Cardano.InAnyShelleyBasedEra era (Cardano.Tx bod _)) f
-        = f era bod
+withShelleyBasedBody
+    :: Cardano.InAnyShelleyBasedEra Cardano.Tx
+    -> (forall era. IsShelleyBasedEra era
+        => ShelleyBasedEra era -> Cardano.TxBody era -> a)
+    -> a
+withShelleyBasedBody (Cardano.InAnyShelleyBasedEra era (Cardano.Tx bod _)) f
+    = f era bod
 
 inAnyShelleyBasedEra
     :: InAnyCardanoEra a
@@ -892,27 +892,20 @@ dummySkeleton inputCount outputs = SelectionSkeleton
 -- Will estimate how many witnesses there /should be/, so it works even
 -- for unsigned transactions.
 --
--- Returns `Nothing` for ByronEra transactions.
+-- Returns `Nothing` for ByronEra transaction bodies.
 _evaluateMinimumFee
     :: Cardano.ProtocolParameters
     -> SealedTx
     -> Maybe Coin
 _evaluateMinimumFee pp tx = do
-    fromCardanoLovelace <$> (minFee =<< estimateNumberOfWitnesses tx)
-  where
-    minFee nWits = case getSealedTxBody tx of
-        InAnyCardanoEra ShelleyEra txbody ->
-            Just $ Cardano.evaluateTransactionFee pp txbody nWits 0
-        InAnyCardanoEra AllegraEra txbody ->
-            Cardano.evaluateTransactionFee pp txbody nWits 0
-        InAnyCardanoEra MaryEra txbody ->
-            Just $ Cardano.evaluateTransactionFee pp txbody nWits 0
-        InAnyCardanoEra AlonzoEra txbody ->
-            let (Cardano.ShelleyTxBody _ ledgertxbody _ _ _ _) = txbody
-                certNum = length $ Alonzo.txcerts ledgertxbody
-            in Just $ Cardano.evaluateTransactionFee pp txbody nWits 0
-        InAnyCardanoEra ByronEra _ -> Nothing
-
+    anyShelleyTx <- inAnyShelleyBasedEra (cardanoTx tx)
+    pure $ withShelleyBasedBody anyShelleyTx $ \_era body ->
+        fromCardanoLovelace $
+            Cardano.evaluateTransactionFee
+                pp
+                body
+                (estimateNumberOfWitnesses body)
+                0
 
 -- | Estimate number of shelley era witnesses
 --
@@ -924,9 +917,9 @@ _evaluateMinimumFee pp tx = do
 -- 'ShelleyBasedEra era => Cardano.Tx era', rather than 'SealedTx'.
 estimateNumberOfWitnesses
     :: Cardano.IsShelleyBasedEra era
-    => Cardano.Tx era
-    -> Maybe Word
-estimateNumberOfWitnesses (Cardano.Tx (Cardano.TxBody txbodycontent) wits) =
+    => Cardano.TxBody era
+    -> Word
+estimateNumberOfWitnesses (Cardano.TxBody txbodycontent) =
     let txIns = Cardano.txIns txbodycontent
         txIns' = [ txin | (txin, Cardano.ViewTx) <- txIns ]
         txInsCollateral = Cardano.txInsCollateral txbodycontent
