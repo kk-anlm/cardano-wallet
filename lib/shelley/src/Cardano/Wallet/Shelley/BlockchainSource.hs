@@ -10,8 +10,6 @@ module Cardano.Wallet.Shelley.BlockchainSource
 
 import Cardano.Launcher.Node
     ( CardanoNodeConn )
-import Cardano.Wallet.Primitive.Types
-    ( NetworkParameters )
 import Cardano.Wallet.Shelley.Compatibility
     ( NodeToClientVersionData )
 
@@ -21,9 +19,6 @@ data BlockchainSource
     = NodeSource
         CardanoNodeConn
         -- ^ Socket for communicating with the node
-        NetworkParameters
-        -- ^ Records the complete set of parameters
-        -- currently in use by the network that are relevant to the wallet.
         NodeToClientVersionData
     | BlockfrostSource Blockfrost.Project
     -- ^ Blockfrost token when working in the light mode
