@@ -2,6 +2,12 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
+-- |
+-- Copyright: © 2020 IOHK
+-- License: Apache-2.0
+--
+-- Tracing functionality for the Shelley wallet
+--
 module Cardano.Wallet.Shelley.Tracers
     ( Tracers' (..)
     , Tracers

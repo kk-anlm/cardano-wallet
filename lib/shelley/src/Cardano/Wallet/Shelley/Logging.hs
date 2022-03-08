@@ -4,6 +4,12 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 
+-- |
+-- Copyright: © 2020 IOHK
+-- License: Apache-2.0
+--
+-- Logging functionality for the Shelley wallet
+--
 module Cardano.Wallet.Shelley.Logging
     ( ApplicationLog(..)
     ) where
@@ -65,7 +71,8 @@ instance ToText ApplicationLog where
                 <> "Cannot listen on the given port. "
                 <> "The operation is not permitted."
         MsgFailedConnectSMASH uri -> T.unwords
-            [ "Failed connect to the given smash server or validate a healthy status."
+            [ "Failed connect to the given smash server\
+              \ or validate a healthy status."
             , "SMASH uri was: "
             , T.pack $ uriToString id uri ""
             ]
