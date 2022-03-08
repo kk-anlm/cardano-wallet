@@ -2669,29 +2669,13 @@ prop_balanceTransactionBalanced (Wallet' utxo wal pending) (ShowBuildable partia
             (Right (), Left e) -> counterexample e $ property False
             (Right (), Right ()) -> property True
       where
-        mw = SomeMnemonic $ either (error . show) id
-            (entropyToMnemonic @12 <$> mkEntropy "0000000000000000")
-        rootK = Shelley.unsafeGenerateKeyFromSeed (mw, Nothing) mempty
-
         validSize :: SealedTx -> Either String ()
         validSize tx = do
-            let tx' = signTransaction
-                    testTxLayer
-                    (Cardano.AnyCardanoEra AlonzoEra)
-                    (\_addr -> Just (rootK, mempty))
-                    -- FIXME! We'd need to sign using /different/ secret keys!
-                    -- Otherwise one witness will end up being used for all
-                    -- inputs.
-                    --
-                    -- We could also use the tx layer to manually account for
-                    -- the size of the remaining witnesses...
-                    (rootK, mempty)
-                    -- FIXME: Won't produce a witness! Property needs to be
-                    -- strengthened by ensuring witnesses are added for all
-                    -- withdrawals.
-                    (inputMapToUTxO $ UTxOIndex.toMap utxo)
-                    tx
-            let size = BS.length (view #serialisedTx tx')
+            let Just (TxSize size) =
+                    evaluateTransactionSize
+                        testTxLayer
+                        (snd mockProtocolParametersForBalancing)
+                        tx
             let limit = fromIntegral $ getQuantity $ view (#txParameters . #getTxMaxSize)
                     mockProtocolParameters
             let msg = unwords
@@ -2700,7 +2684,7 @@ prop_balanceTransactionBalanced (Wallet' utxo wal pending) (ShowBuildable partia
                     , "must be lower than the maximum size "
                     , show limit
                     , ", tx:"
-                    , show (decodeTx testTxLayer tx')
+                    , show (decodeTx testTxLayer tx)
                     ]
             when (size > limit) $ Left msg
 

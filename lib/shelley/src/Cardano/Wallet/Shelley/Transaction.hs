@@ -923,22 +923,32 @@ _evaluateTransactionSize pparams body =
         -- Hack which allows us to rely on the ledger to calculate the size of
         -- witnesses:
         feeOfWits = minfee nWits - minfee 0
+        sizeOfWits =
+            case feeOfWits `quotRem` perByte of
+                (n, 0) -> TxSize n
+                (_, _) -> error $ unwords
+                    [ "evaluateTransactionSize:"
+                    , "couldn't divide"
+                    , show feeOfWits
+                    , "lovelace"
+                    , "(the fee contribution"
+                    , "of"
+                    , show nWits
+                    , "witesses),"
+                    , "with"
+                    , show perByte
+                    , "lovelace/byte"
+                    ]
+
+
+        sizeOfTx = TxSize
+            . fromIntegral
+            . BS.length
+            . serialisedTx
+            $ sealedTxFromCardanoBody body
     in
-        case feeOfWits `quotRem` perByte of
-            (n, 0) -> TxSize n
-            (_, _) -> error $ unwords
-                [ "evaluateTransactionSize:"
-                , "couldn't divide"
-                , show feeOfWits
-                , "lovelace"
-                , "(the fee contribution"
-                , "of"
-                , show nWits
-                , "witesses),"
-                , "with"
-                , show perByte
-                , "lovelace/byte"
-                ]
+        sizeOfTx <> sizeOfWits
+
   where
     minfee nWits = Coin.toNatural $ fromCardanoLovelace $
             Cardano.evaluateTransactionFee
