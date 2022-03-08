@@ -911,6 +911,7 @@ _evaluateMinimumFee pp tx = do
                 (estimateNumberOfWitnesses body)
                 0
 
+-- TODO: Rename to 'estimateSignedTransactionSize'
 _evaluateTransactionSize
     :: Cardano.IsShelleyBasedEra era
     => Cardano.ProtocolParameters
