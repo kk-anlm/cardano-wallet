@@ -157,6 +157,8 @@ import Data.ByteString.Lazy
     ( ByteString )
 import Data.Function
     ( (&) )
+import Data.Functor.Contravariant
+    ( (>$<) )
 import Data.Functor.Identity
     ( runIdentity )
 import Data.List
@@ -352,14 +354,10 @@ withNetworkLayerBase tr net np conn versionData tol action = do
             withStats $ \trChainSyncLog -> do
                 let mapB = toCardanoBlockHeader gp
                     mapP = fromPoint
+                let blockHeader = fromTip' gp
                 let client = mkWalletClient
-                        (contramap (mapChainSyncLog mapB mapP) trChainSyncLog)
-                        (mapChainFollower
-                            toPoint
-                            fromPoint
-                            (fromTip' gp)
-                            id
-                            follower)
+                        (mapChainSyncLog mapB mapP >$< trChainSyncLog)
+                        (mapChainFollower toPoint mapP blockHeader id follower)
                         cfg
                 traceWith trFollowLog MsgStartFollowing
                 connectClient tr handlers client versionData conn
