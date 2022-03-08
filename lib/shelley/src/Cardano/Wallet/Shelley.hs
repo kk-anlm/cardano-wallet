@@ -305,6 +305,24 @@ serveWallet
             BlockfrostSource pr ->
                 withBlockfrostNetworkLayer
 
+    withBlockfrostNetworkLayer ::
+        (NetworkLayer IO (CardanoBlock StandardCrypto) -> IO a) -> IO a
+    withBlockfrostNetworkLayer k = k NetworkLayer
+        { chainSync = undefined
+        , currentNodeTip = undefined
+        , currentNodeEra = undefined
+        , currentProtocolParameters = undefined
+        , currentNodeProtocolParameters = undefined
+        , currentSlottingParameters = undefined
+        , watchNodeTip = undefined
+        , postTx = undefined
+        , stakeDistribution = undefined
+        , getCachedRewardAccountBalance = undefined
+        , fetchRewardAccountBalances = undefined
+        , timeInterpreter = undefined
+        , syncProgress = undefined
+        }
+
     bindSocket :: ContT r IO (Either ListenError (Warp.Port, Socket))
     bindSocket = ContT $ Server.withListeningSocket hostPref listen
 
@@ -321,10 +339,6 @@ serveWallet
     withMultisigApi netLayer =
         let txLayerUdefined = error "TO-DO in ADP-686"
         in lift $ apiLayer txLayerUdefined netLayer Server.idleWorker
-
-    withBlockfrostNetworkLayer ::
-        (NetworkLayer IO (CardanoBlock StandardCrypto) -> IO a) -> IO a
-    withBlockfrostNetworkLayer = error "not implemented"
 
     withNtpClient :: ContT r IO NtpClient
     withNtpClient = do
