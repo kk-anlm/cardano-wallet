@@ -132,7 +132,6 @@ import Cardano.Wallet.Primitive.Types.Tx
     , TxMetadata (..)
     , TxOut (..)
     , TxSize (..)
-    , getSealedTxBody
     , sealedTxFromCardano'
     , sealedTxFromCardanoBody
     , txOutCoin
@@ -542,6 +541,11 @@ newTransactionLayer networkId = TransactionLayer
                     constructUnsignedTx networkId payload ttl rewardAcct wdrl
                         selection delta
 
+    , evaluateTransactionSize = \pp tx -> do
+        anyShelleyTx <- inAnyShelleyBasedEra (cardanoTx tx)
+        pure $ withShelleyBasedBody anyShelleyTx $ \_era body ->
+            _evaluateTransactionSize pp body
+
     , calcMinimumCost = \pp ctx skeleton ->
         estimateTxCost pp (mkTxSkeleton (txWitnessTagFor @k) ctx skeleton)
         <>
@@ -907,16 +911,52 @@ _evaluateMinimumFee pp tx = do
                 (estimateNumberOfWitnesses body)
                 0
 
+_evaluateTransactionSize
+    :: Cardano.IsShelleyBasedEra era
+    => Cardano.ProtocolParameters
+    -> Cardano.TxBody era
+    -> TxSize
+_evaluateTransactionSize pparams body =
+    let
+        nWits = estimateNumberOfWitnesses body
+
+        -- Hack which allows us to rely on the ledger to calculate the size of
+        -- witnesses:
+        feeOfWits = minfee nWits - minfee 0
+    in
+        case feeOfWits `quotRem` perByte of
+            (n, 0) -> TxSize n
+            (_, _) -> error $ unwords
+                [ "evaluateTransactionSize:"
+                , "couldn't divide"
+                , show feeOfWits
+                , "lovelace"
+                , "(the fee contribution"
+                , "of"
+                , show nWits
+                , "witesses),"
+                , "with"
+                , show perByte
+                , "lovelace/byte"
+                ]
+  where
+    minfee nWits = Coin.toNatural $ fromCardanoLovelace $
+            Cardano.evaluateTransactionFee
+                pparams
+                body
+                nWits
+                0
+    perByte = view #protocolParamTxFeePerByte pparams
+
 -- | Estimate number of shelley era witnesses
 --
 -- NOTE: Assuming one witness per certificate is wrong. KeyReg certs don't
 -- require witnesses, and several certs may share the same key.
 --
--- To avoid the many functions in this module returning 'Nothing' for 'ByronEra'
--- transactions, we could consider using
--- 'ShelleyBasedEra era => Cardano.Tx era', rather than 'SealedTx'.
+-- NOTE: Similar to 'estimateTransactionKeyWitnessCount' from cardano-api, which
+-- we cannot use because it requires a 'TxBodyContent BuildTx era'.
 estimateNumberOfWitnesses
-    :: Cardano.IsShelleyBasedEra era
+    :: forall era. Cardano.IsShelleyBasedEra era
     => Cardano.TxBody era
     -> Word
 estimateNumberOfWitnesses (Cardano.TxBody txbodycontent) =
@@ -950,6 +990,9 @@ estimateNumberOfWitnesses (Cardano.TxBody txbodycontent) =
        length txWithdrawals' +
        txUpdateProposal' +
        txCerts
+  where
+    -- Silence warning from redundant @IsShelleyBasedEra@ constraint:
+    _ = shelleyBasedEra @era
 
 _maxScriptExecutionCost
     :: ProtocolParameters
