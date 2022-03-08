@@ -155,6 +155,10 @@ import Control.Applicative
     ( Const (..) )
 import Control.Monad
     ( forM_, void, (>=>) )
+import Control.Monad.Trans.Class
+    ( lift )
+import Control.Monad.Trans.Cont
+    ( ContT (ContT), evalContT )
 import Control.Tracer
     ( Tracer, contramap, traceWith )
 import Data.Function
@@ -274,59 +278,27 @@ serveWallet
   block0
   beforeMainLoop = do
     case blockchainSrc of
-        NodeSource nodeConn _ ->
-            traceWith applicationTracer $ MsgStartingNode nodeConn
-        BlockfrostSource blockfrostProject ->
-            traceWith applicationTracer $ MsgStartingLite blockfrostProject
-    traceWith applicationTracer $ MsgNetworkName $ networkName proxyNetwork
-    Server.withListeningSocket hostPref listen $ \case
-        Left err -> do
-            traceWith applicationTracer $ MsgServerStartupError err
-            pure $ ExitFailure $ exitCodeApiServer err
-        Right (_, socket) ->
-            serveApp socket
+        NodeSource nodeConn _ -> traceApp $ MsgStartingNode nodeConn
+        BlockfrostSource project -> traceApp $ MsgStartingLite project
+    traceApp $ MsgNetworkName $ networkName proxyNetwork
+    serveApp
   where
+    traceApp = traceWith applicationTracer
 
-    useNetworkLayer
-        :: HasCallStack
-        => BlockchainSource
-        -> Tracer IO NetworkLayerLog
-        -- ^ Logging of network layer startup
-        -> Cardano.NetworkId
-        -- ^ NetworkId for local node connection
-        -> SyncTolerance
-        -> (NetworkLayer IO (CardanoBlock StandardCrypto) -> IO a)
-        -- ^ Continuation with the network layer
-        -> IO a
-    useNetworkLayer blockchainSrc tr net tol action =
-        case blockchainSrc of
-            NodeSource nodeConn ver ->
-                withNetworkLayer tr net netParams nodeConn ver tol action
-            BlockfrostSource pr ->
-                withBlockfrostNetworkLayer action
-
-    withBlockfrostNetworkLayer ::
-        (NetworkLayer IO (CardanoBlock StandardCrypto) -> IO a) -> IO a
-    withBlockfrostNetworkLayer = error "not implemented"
-
-    useWalletNtpClient action =
-        withIOManager $ \iom -> withWalletNtpClient iom ntpClientTracer action
-
-    serveApp socket = useWalletNtpClient $ \ntpClient -> do
-        let net = networkIdVal proxyNetwork
-        useNetworkLayer blockchainSrc networkTracer net sTolerance $
-            \netLayer ->
-            withPoolsMonitoring databaseDir netParams netLayer $
-                \stakePoolLayer -> do
-                randomApi <- apiLayer (newTransactionLayer net) netLayer
-                    Server.idleWorker
-                icarusApi  <- apiLayer (newTransactionLayer net) netLayer
-                    Server.idleWorker
-                shelleyApi <- apiLayer (newTransactionLayer net) netLayer
-                    (Server.manageRewardBalance proxyNetwork)
-                let txLayerUdefined = error "TO-DO in ADP-686"
-                multisigApi <- apiLayer txLayerUdefined netLayer
-                    Server.idleWorker
+    serveApp = evalContT $ do
+        netLayer <- withNetLayer blockchainSrc networkTracer net sTolerance
+        dbLayer <- withDbLayer netLayer
+        stakePoolLayer <- withStakePoolLayer dbLayer netLayer
+        randomApi <- withRandomApi netLayer
+        icarusApi  <- withIcarusApi netLayer
+        shelleyApi <- withShelleyApi netLayer
+        multisigApi <- withMultisigApi netLayer
+        ntpClient <- withNtpClient
+        bindSocket >>= lift . \case
+            Left err -> do
+                traceWith applicationTracer $ MsgServerStartupError err
+                pure $ ExitFailure $ exitCodeApiServer err
+            Right (_, socket) ->
                 ExitSuccess <$ startServer
                     proxyNetwork
                     socket
@@ -336,6 +308,49 @@ serveWallet
                     multisigApi
                     stakePoolLayer
                     ntpClient
+
+    net = networkIdVal proxyNetwork
+
+    withNetLayer
+        :: HasCallStack
+        => BlockchainSource
+        -> Tracer IO NetworkLayerLog
+        -- ^ Logging of network layer startup
+        -> Cardano.NetworkId
+        -- ^ NetworkId for local node connection
+        -> SyncTolerance
+        -> ContT r IO (NetworkLayer IO (CardanoBlock StandardCrypto) )
+    withNetLayer blockchainSrc tr net tol =
+        ContT $ case blockchainSrc of
+            NodeSource nodeConn ver ->
+                withNetworkLayer tr net netParams nodeConn ver tol
+            BlockfrostSource pr ->
+                withBlockfrostNetworkLayer
+
+    bindSocket =
+        ContT $ Server.withListeningSocket hostPref listen
+
+    withRandomApi netLayer =
+        lift $ apiLayer (newTransactionLayer net) netLayer Server.idleWorker
+
+    withIcarusApi netLayer =
+        lift $ apiLayer (newTransactionLayer net) netLayer Server.idleWorker
+
+    withShelleyApi netLayer =
+        lift $ apiLayer (newTransactionLayer net) netLayer
+            (Server.manageRewardBalance proxyNetwork)
+
+    withMultisigApi netLayer =
+        let txLayerUdefined = error "TO-DO in ADP-686"
+        in lift $ apiLayer txLayerUdefined netLayer Server.idleWorker
+
+    withBlockfrostNetworkLayer ::
+        (NetworkLayer IO (CardanoBlock StandardCrypto) -> IO a) -> IO a
+    withBlockfrostNetworkLayer = error "not implemented"
+
+    withNtpClient = do
+        iom <- ContT withIOManager
+        ContT $ withWalletNtpClient iom ntpClientTracer
 
     startServer
         :: forall n.
@@ -366,43 +381,30 @@ serveWallet
                 server byron icarus shelley multisig spl ntp
         Server.start serverSettings apiServerTracer tlsConfig socket application
 
-    withPoolsMonitoring
-        :: Maybe FilePath
-        -> NetworkParameters
-        -> NetworkLayer IO (CardanoBlock StandardCrypto)
-        -> (StakePoolLayer -> IO a)
-        -> IO a
-    withPoolsMonitoring
-        dir
-        netParams@NetworkParameters{slottingParameters}
-        netLayer
-        action =
-        Pool.withDecoratedDBLayer
+    withDbLayer netLayer =
+        ContT $ Pool.withDecoratedDBLayer
             (fromMaybe Pool.undecoratedDB mPoolDatabaseDecorator)
             poolsDbTracer
-            (Pool.defaultFilePath <$> dir)
+            (Pool.defaultFilePath <$> databaseDir)
             (neverFails "withPoolsMonitoring never forecasts into the future" $
                 timeInterpreter netLayer)
-            $ \dbFactory@DBLayer{..} -> do
 
-            gcStatus <- newTVarIO NotStarted
-            forM_ settings $ atomically . putSettings
+    withStakePoolLayer dbLayer@DBLayer{..} netLayer = lift $ do
+        gcStatus <- newTVarIO NotStarted
+        forM_ settings $ atomically . putSettings
+        let tr = poolsEngineTracer
+        void $ forkFinally
+            (monitorStakePools tr netParams netLayer dbLayer)
+            (traceAfterThread (contramap MsgExitMonitoring tr))
 
-            let tr = poolsEngineTracer
-
-            void $ forkFinally
-                (monitorStakePools tr netParams netLayer dbFactory)
-                (traceAfterThread (contramap MsgExitMonitoring tr))
-
-            -- fixme: needs to be simplified as part of ADP-634
-            let startMetadataThread = forkIOWithUnmask
-                    ($ monitorMetadata gcStatus tr slottingParameters dbFactory)
-            metadataThread <- newMVar =<< startMetadataThread
-            let restartMetadataThread = modifyMVar_ metadataThread $
-                    killThread >=> const startMetadataThread
-            spl <- newStakePoolLayer
-                gcStatus netLayer dbFactory restartMetadataThread
-            action spl
+        -- fixme: needs to be simplified as part of ADP-634
+        let NetworkParameters{slottingParameters} = netParams
+            startMetadataThread = forkIOWithUnmask
+                ($ monitorMetadata gcStatus tr slottingParameters dbLayer)
+        metadataThread <- newMVar =<< startMetadataThread
+        let restartMetadataThread = modifyMVar_ metadataThread $
+                killThread >=> const startMetadataThread
+        newStakePoolLayer gcStatus netLayer dbLayer restartMetadataThread
 
     apiLayer
         :: forall s k.
@@ -469,7 +471,8 @@ serveWallet
             tokenMetaClient
             coworker
       where
-        NetworkParameters genesisParams slottingParameters protoParams = netParams
+        NetworkParameters genesisParams slottingParameters protoParams =
+            netParams
         netLayer' = fromCardanoBlock genesisParams <$> netLayer
 
 
