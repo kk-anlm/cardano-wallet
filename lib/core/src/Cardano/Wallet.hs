@@ -3269,7 +3269,7 @@ data ErrCreateMigrationPlan
     deriving (Generic, Eq, Show)
 
 data ErrSelectAssets
-    = ErrSelectAssetsPrepareOutputsError SelectionOutputError
+    = ErrSelectAssetsPrepareOutputsError (SelectionOutputError Address)
     | ErrSelectAssetsNoSuchWallet ErrNoSuchWallet
     | ErrSelectAssetsAlreadyWithdrawing Tx
     | ErrSelectAssetsSelectionError (SelectionError InputId)

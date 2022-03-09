@@ -237,7 +237,7 @@ data SelectionError u
     | SelectionCollateralErrorOf
       (SelectionCollateralError u)
     | SelectionOutputErrorOf
-      SelectionOutputError
+      (SelectionOutputError Address)
     deriving (Eq, Show)
 
 -- | Represents a balanced selection.
@@ -1131,7 +1131,8 @@ verifySelectionCollateralError cs ps e =
 -- Selection error verification: output errors
 --------------------------------------------------------------------------------
 
-verifySelectionOutputError :: VerifySelectionError SelectionOutputError u
+verifySelectionOutputError
+    :: VerifySelectionError (SelectionOutputError Address) u
 verifySelectionOutputError cs ps = \case
     SelectionOutputSizeExceedsLimit e ->
         verifySelectionOutputSizeExceedsLimitError cs ps e
@@ -1344,7 +1345,7 @@ computeMinimumCollateral params =
 prepareOutputsInternal
     :: SelectionConstraints Address
     -> [(Address, TokenBundle)]
-    -> Either SelectionOutputError [(Address, TokenBundle)]
+    -> Either (SelectionOutputError Address) [(Address, TokenBundle)]
 prepareOutputsInternal constraints outputsUnprepared
     | e : _ <- excessivelyLargeBundles =
         Left $
@@ -1408,11 +1409,11 @@ prepareOutputsWith minCoinValueFor =
 
 -- | Indicates a problem when preparing outputs for a coin selection.
 --
-data SelectionOutputError
+data SelectionOutputError address
     = SelectionOutputSizeExceedsLimit
-        (SelectionOutputSizeExceedsLimitError Address)
+        (SelectionOutputSizeExceedsLimitError address)
     | SelectionOutputTokenQuantityExceedsLimit
-        (SelectionOutputTokenQuantityExceedsLimitError Address)
+        (SelectionOutputTokenQuantityExceedsLimitError address)
     deriving (Eq, Generic, Show)
 
 newtype SelectionOutputSizeExceedsLimitError address =

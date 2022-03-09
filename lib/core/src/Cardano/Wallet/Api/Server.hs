@@ -4319,7 +4319,7 @@ instance IsServerError (ErrInvalidDerivationIndex 'Soft level) where
                 , "between ", pretty minIx, " and ", pretty maxIx, " without a suffix."
                 ]
 
-instance IsServerError SelectionOutputError where
+instance IsServerError (SelectionOutputError Address) where
     toServerError = \case
         SelectionOutputSizeExceedsLimit e ->
             toServerError e
