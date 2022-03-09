@@ -749,25 +749,26 @@ verifySelectionInputCountWithinLimit cs _ps selection =
 
 newtype FailureToVerifySelectionOutputCoinsSufficient =
     FailureToVerifySelectionOutputCoinsSufficient
-    (NonEmpty SelectionOutputCoinInsufficientError)
+    (NonEmpty (SelectionOutputCoinInsufficientError Address))
     deriving (Eq, Show)
 
-data SelectionOutputCoinInsufficientError = SelectionOutputCoinInsufficientError
-    { minimumExpectedCoin :: Coin
-    , output :: (Address, TokenBundle)
-    }
+data SelectionOutputCoinInsufficientError address =
+    SelectionOutputCoinInsufficientError
+        { minimumExpectedCoin :: Coin
+        , output :: (address, TokenBundle)
+        }
     deriving (Eq, Show)
 
 verifySelectionOutputCoinsSufficient :: VerifySelection Address u
 verifySelectionOutputCoinsSufficient cs _ps selection =
     verifyEmpty errors FailureToVerifySelectionOutputCoinsSufficient
   where
-    errors :: [SelectionOutputCoinInsufficientError]
+    errors :: [SelectionOutputCoinInsufficientError Address]
     errors = mapMaybe maybeError (selectionAllOutputs selection)
 
     maybeError
         :: (Address, TokenBundle)
-        -> Maybe SelectionOutputCoinInsufficientError
+        -> Maybe (SelectionOutputCoinInsufficientError Address)
     maybeError output
         | snd output ^. #coin < minimumExpectedCoin =
             Just SelectionOutputCoinInsufficientError
