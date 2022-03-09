@@ -76,8 +76,6 @@ import Cardano.Wallet.CoinSelection.Internal.Balance
     )
 import Cardano.Wallet.CoinSelection.Internal.Collateral
     ( SelectionCollateralError )
-import Cardano.Wallet.Primitive.Types.Address
-    ( Address (..) )
 import Cardano.Wallet.Primitive.Types.Coin
     ( Coin (..) )
 import Cardano.Wallet.Primitive.Types.TokenBundle
@@ -304,13 +302,13 @@ type PerformSelection m address a u =
 --      >>> verifySelectionError cs ps e == VerificationSuccess
 --
 performSelection
-    :: (HasCallStack, MonadRandom m, Ord u, Show u)
-    => PerformSelection m Address (Selection Address u) u
+    :: (HasCallStack, MonadRandom m, Ord u, Show address, Show u)
+    => PerformSelection m address (Selection address u) u
 performSelection cs = performSelectionInner cs <=< prepareOutputs cs
 
 performSelectionInner
-    :: (HasCallStack, MonadRandom m, Ord u, Show u)
-    => PerformSelection m Address (Selection Address u) u
+    :: (HasCallStack, MonadRandom m, Ord u, Show address, Show u)
+    => PerformSelection m address (Selection address u) u
 performSelectionInner cs ps = do
     balanceResult <- performSelectionBalance cs ps
     collateralResult <- performSelectionCollateral balanceResult cs ps
@@ -318,23 +316,23 @@ performSelectionInner cs ps = do
 
 prepareOutputs
     :: Applicative m
-    => PerformSelection m Address (SelectionParams Address u) u
+    => PerformSelection m address (SelectionParams address u) u
 prepareOutputs cs ps =
     withExceptT SelectionOutputErrorOf $ ExceptT $ pure $
     flip (set #outputsToCover) ps <$>
     prepareOutputsInternal cs (view #outputsToCover ps)
 
 performSelectionBalance
-    :: (HasCallStack, MonadRandom m, Ord u, Show u)
-    => PerformSelection m Address (Balance.SelectionResult Address u) u
+    :: (HasCallStack, MonadRandom m, Ord u, Show address, Show u)
+    => PerformSelection m address (Balance.SelectionResult address u) u
 performSelectionBalance cs ps =
     withExceptT SelectionBalanceErrorOf $ ExceptT $
     uncurry Balance.performSelection $ toBalanceConstraintsParams (cs, ps)
 
 performSelectionCollateral
     :: (Applicative m, Ord u)
-    => Balance.SelectionResult Address u
-    -> PerformSelection m Address (Collateral.SelectionResult u) u
+    => Balance.SelectionResult address u
+    -> PerformSelection m address (Collateral.SelectionResult u) u
 performSelectionCollateral balanceResult cs ps
     | selectionCollateralRequired ps =
         withExceptT SelectionCollateralErrorOf $ ExceptT $ pure $
@@ -348,19 +346,25 @@ performSelectionCollateral balanceResult cs ps
 -- Since change outputs do not have addresses at the point of generation,
 -- this function assigns all change outputs with a dummy change address.
 --
-selectionAllOutputs :: Selection Address u -> [(Address, TokenBundle)]
+selectionAllOutputs :: Selection address u -> [(address, TokenBundle)]
 selectionAllOutputs selection = (<>)
     (selection ^. #outputs)
-    (selection ^. #change <&> (dummyChangeAddress, ))
+    (selection ^. #change <&> (dummyChangeaddress, ))
   where
-    dummyChangeAddress :: Address
-    dummyChangeAddress = Address "<change>"
+    dummyChangeaddress :: address
+    dummyChangeaddress =
+        -- TODO: ADP-1448
+        --
+        -- Replace this call to 'error' with a call to a function that
+        -- generates a dummy change address.
+        --
+        error "change address"
 
 -- | Creates constraints and parameters for 'Balance.performSelection'.
 --
 toBalanceConstraintsParams
-    :: (        SelectionConstraints Address,         SelectionParams Address u)
-    -> (Balance.SelectionConstraints Address, Balance.SelectionParams Address u)
+    :: (        SelectionConstraints address,         SelectionParams address u)
+    -> (Balance.SelectionConstraints address, Balance.SelectionParams address u)
 toBalanceConstraintsParams (constraints, params) =
     (balanceConstraints, balanceParams)
   where
@@ -378,8 +382,8 @@ toBalanceConstraintsParams (constraints, params) =
         }
       where
         adjustComputeMinimumCost
-            :: (SelectionSkeleton Address -> Coin)
-            -> (SelectionSkeleton Address -> Coin)
+            :: (SelectionSkeleton address -> Coin)
+            -> (SelectionSkeleton address -> Coin)
         adjustComputeMinimumCost =
             whenCollateralRequired params (. adjustSelectionSkeleton)
           where
@@ -400,14 +404,14 @@ toBalanceConstraintsParams (constraints, params) =
             -- relatively small, this fee increase is likely to be very small.
             --
             adjustSelectionSkeleton
-                :: SelectionSkeleton Address
-                -> SelectionSkeleton Address
+                :: SelectionSkeleton address
+                -> SelectionSkeleton address
             adjustSelectionSkeleton = over #skeletonInputCount
                 (+ view #maximumCollateralInputCount constraints)
 
         adjustComputeSelectionLimit
-            :: ([(Address, TokenBundle)] -> SelectionLimit)
-            -> ([(Address, TokenBundle)] -> SelectionLimit)
+            :: ([(address, TokenBundle)] -> SelectionLimit)
+            -> ([(address, TokenBundle)] -> SelectionLimit)
         adjustComputeSelectionLimit =
             whenCollateralRequired params (fmap adjustSelectionLimit)
           where
@@ -480,10 +484,10 @@ toCollateralConstraintsParams balanceResult (constraints, params) =
 -- | Creates a 'Selection' from selections of inputs and collateral.
 --
 mkSelection
-    :: SelectionParams Address u
-    -> Balance.SelectionResult Address u
+    :: SelectionParams address u
+    -> Balance.SelectionResult address u
     -> Collateral.SelectionResult u
-    -> Selection Address u
+    -> Selection address u
 mkSelection _params balanceResult collateralResult = Selection
     { inputs = view #inputsSelected balanceResult
     , collateral = Map.toList $ view #coinsSelected collateralResult
@@ -497,7 +501,7 @@ mkSelection _params balanceResult collateralResult = Selection
 
 -- | Converts a 'Selection' to a balance result.
 --
-toBalanceResult :: Selection Address u -> Balance.SelectionResult Address u
+toBalanceResult :: Selection address u -> Balance.SelectionResult address u
 toBalanceResult selection = Balance.SelectionResult
     { inputsSelected = view #inputs selection
     , outputsCovered = view #outputs selection
@@ -625,7 +629,7 @@ type VerifySelection address u =
 -- it's not usually necessary to call this function from ordinary application
 -- code, unless you suspect that a 'Selection' is incorrect in some way.
 --
-verifySelection :: (Ord u, Show u) => VerifySelection Address u
+verifySelection :: (Ord u, Show address, Show u) => VerifySelection address u
 verifySelection = mconcat
     [ verifySelectionCollateralSufficient
     , verifySelectionCollateralSuitable
@@ -647,7 +651,7 @@ data FailureToVerifySelectionCollateralSufficient =
     }
     deriving (Eq, Show)
 
-verifySelectionCollateralSufficient :: VerifySelection Address u
+verifySelectionCollateralSufficient :: VerifySelection address u
 verifySelectionCollateralSufficient cs ps selection =
     verify
         (collateralSelected >= collateralRequired)
@@ -670,7 +674,7 @@ data FailureToVerifySelectionCollateralSuitable u =
     deriving (Eq, Show)
 
 verifySelectionCollateralSuitable
-    :: forall u. (Ord u, Show u) => VerifySelection Address u
+    :: forall address u. (Ord u, Show u) => VerifySelection address u
 verifySelectionCollateralSuitable _cs ps selection =
     verify
         (null collateralSelectedButUnsuitable)
@@ -705,7 +709,7 @@ data FailureToVerifySelectionDeltaValid = FailureToVerifySelectionDeltaValid
     }
     deriving (Eq, Show)
 
-verifySelectionDeltaValid :: VerifySelection Address u
+verifySelectionDeltaValid :: VerifySelection address u
 verifySelectionDeltaValid cs ps selection =
     verify
         (selectionHasValidSurplus cs ps selection)
@@ -732,7 +736,7 @@ data FailureToVerifySelectionInputCountWithinLimit =
     }
     deriving (Eq, Show)
 
-verifySelectionInputCountWithinLimit :: VerifySelection Address u
+verifySelectionInputCountWithinLimit :: VerifySelection address u
 verifySelectionInputCountWithinLimit cs _ps selection =
     verify
         (Balance.MaximumInputLimit totalInputCount <= selectionLimit)
@@ -759,16 +763,17 @@ data SelectionOutputCoinInsufficientError address =
         }
     deriving (Eq, Show)
 
-verifySelectionOutputCoinsSufficient :: VerifySelection Address u
+verifySelectionOutputCoinsSufficient
+    :: forall address u. Show address => VerifySelection address u
 verifySelectionOutputCoinsSufficient cs _ps selection =
     verifyEmpty errors FailureToVerifySelectionOutputCoinsSufficient
   where
-    errors :: [SelectionOutputCoinInsufficientError Address]
+    errors :: [SelectionOutputCoinInsufficientError address]
     errors = mapMaybe maybeError (selectionAllOutputs selection)
 
     maybeError
-        :: (Address, TokenBundle)
-        -> Maybe (SelectionOutputCoinInsufficientError Address)
+        :: (address, TokenBundle)
+        -> Maybe (SelectionOutputCoinInsufficientError address)
     maybeError output
         | snd output ^. #coin < minimumExpectedCoin =
             Just SelectionOutputCoinInsufficientError
@@ -790,11 +795,12 @@ newtype FailureToVerifySelectionOutputSizesWithinLimit address =
     (NonEmpty (SelectionOutputSizeExceedsLimitError address))
     deriving (Eq, Show)
 
-verifySelectionOutputSizesWithinLimit :: VerifySelection Address u
+verifySelectionOutputSizesWithinLimit
+    :: forall address u. Show address => VerifySelection address u
 verifySelectionOutputSizesWithinLimit cs _ps selection =
     verifyEmpty errors FailureToVerifySelectionOutputSizesWithinLimit
   where
-    errors :: [SelectionOutputSizeExceedsLimitError Address]
+    errors :: [SelectionOutputSizeExceedsLimitError address]
     errors = mapMaybe (verifyOutputSize cs) (selectionAllOutputs selection)
 
 --------------------------------------------------------------------------------
@@ -806,11 +812,13 @@ newtype FailureToVerifySelectionOutputTokenQuantitiesWithinLimit address =
     (NonEmpty (SelectionOutputTokenQuantityExceedsLimitError address))
     deriving (Eq, Show)
 
-verifySelectionOutputTokenQuantitiesWithinLimit :: VerifySelection Address u
+verifySelectionOutputTokenQuantitiesWithinLimit
+    :: forall address u. Show address
+    => VerifySelection address u
 verifySelectionOutputTokenQuantitiesWithinLimit _cs _ps selection =
     verifyEmpty errors FailureToVerifySelectionOutputTokenQuantitiesWithinLimit
   where
-    errors :: [SelectionOutputTokenQuantityExceedsLimitError Address]
+    errors :: [SelectionOutputTokenQuantityExceedsLimitError address]
     errors = verifyOutputTokenQuantities =<< selectionAllOutputs selection
 
 --------------------------------------------------------------------------------
@@ -832,8 +840,8 @@ type VerifySelectionError e address u =
 -- code, unless you suspect that a 'SelectionError' is incorrect in some way.
 --
 verifySelectionError
-    :: (Ord u, Show u)
-    => VerifySelectionError (SelectionError Address u) Address u
+    :: (Show address, Ord u, Show u)
+    => VerifySelectionError (SelectionError address u) address u
 verifySelectionError cs ps = \case
     SelectionBalanceErrorOf e ->
         verifySelectionBalanceError cs ps e
@@ -847,8 +855,8 @@ verifySelectionError cs ps = \case
 --------------------------------------------------------------------------------
 
 verifySelectionBalanceError
-    :: (Ord u, Show u)
-    => VerifySelectionError (SelectionBalanceError Address u) Address u
+    :: (Show address, Ord u, Show u)
+    => VerifySelectionError (SelectionBalanceError address u) address u
 verifySelectionBalanceError cs ps = \case
     Balance.BalanceInsufficient e ->
         verifyBalanceInsufficientError cs ps e
@@ -873,7 +881,7 @@ data FailureToVerifyBalanceInsufficientError =
     deriving (Eq, Show)
 
 verifyBalanceInsufficientError
-    :: VerifySelectionError Balance.BalanceInsufficientError Address u
+    :: VerifySelectionError Balance.BalanceInsufficientError address u
 verifyBalanceInsufficientError cs ps e =
     verifyAll
         [ not (utxoBalanceRequired `leq` utxoBalanceAvailable)
@@ -893,7 +901,7 @@ newtype FailureToVerifyEmptyUTxOError u = FailureToVerifyEmptyUTxOError
     { utxoAvailableForInputs :: UTxOSelection u }
     deriving (Eq, Show)
 
-verifyEmptyUTxOError :: (Eq u, Show u) => VerifySelectionError () Address u
+verifyEmptyUTxOError :: (Eq u, Show u) => VerifySelectionError () address u
 verifyEmptyUTxOError _cs SelectionParams {utxoAvailableForInputs} _e =
     verify
         (utxoAvailableForInputs == UTxOSelection.empty)
@@ -912,8 +920,9 @@ data FailureToVerifyInsufficientMinCoinValueError address =
     deriving (Eq, Show)
 
 verifyInsufficientMinCoinValueError
-    :: VerifySelectionError
-        (Balance.InsufficientMinCoinValueError Address) Address u
+    :: Show address
+    => VerifySelectionError
+        (Balance.InsufficientMinCoinValueError address) address u
 verifyInsufficientMinCoinValueError cs _ps e =
     verifyAll
         [ reportedMinCoinValue == verifiedMinCoinValue
@@ -954,9 +963,9 @@ data FailureToVerifySelectionLimitReachedError u =
 -- given the amount of space we expect to be reserved for collateral inputs.
 --
 verifySelectionLimitReachedError
-    :: forall u. Show u
+    :: forall address u. Show u
     => VerifySelectionError
-        (Balance.SelectionLimitReachedError Address u) Address u
+        (Balance.SelectionLimitReachedError address u) address u
 verifySelectionLimitReachedError cs ps e =
     verify
         (Balance.MaximumInputLimit selectedInputCount >= selectionLimitAdjusted)
@@ -1019,9 +1028,9 @@ data FailureToVerifyUnableToConstructChangeError address u =
 -- balance is insufficient by returning a 'BalanceInsufficientError' instead.
 --
 verifyUnableToConstructChangeError
-    :: forall u. (Ord u, Show u)
+    :: forall address u. (Ord u, Show address, Show u)
     => VerifySelectionError
-        Balance.UnableToConstructChangeError Address u
+        Balance.UnableToConstructChangeError address u
 verifyUnableToConstructChangeError cs ps errorOriginal =
     case resultWithMinimalConstraints of
         Left errorWithMinimalConstraints ->
@@ -1037,7 +1046,7 @@ verifyUnableToConstructChangeError cs ps errorOriginal =
     --   - a minimum ada quantity function that always returns zero.
     --
     resultWithMinimalConstraints
-        :: Either (SelectionError Address u) (Selection Address u)
+        :: Either (SelectionError address u) (Selection address u)
     resultWithMinimalConstraints =
         -- The 'performSelection' function requires a 'MonadRandom' context so
         -- that it can select entries at random from the available UTxO set.
@@ -1105,8 +1114,8 @@ data FailureToVerifySelectionCollateralError u =
         deriving (Eq, Show)
 
 verifySelectionCollateralError
-    :: forall u. (Ord u, Show u)
-    => VerifySelectionError (SelectionCollateralError u) Address u
+    :: forall address u. (Ord u, Show u)
+    => VerifySelectionError (SelectionCollateralError u) address u
 verifySelectionCollateralError cs ps e =
     verifyAll
         [ Map.null largestCombinationUnsuitableSubset
@@ -1137,7 +1146,8 @@ verifySelectionCollateralError cs ps e =
 --------------------------------------------------------------------------------
 
 verifySelectionOutputError
-    :: VerifySelectionError (SelectionOutputError Address) Address u
+    :: Show address
+    => VerifySelectionError (SelectionOutputError address) address u
 verifySelectionOutputError cs ps = \case
     SelectionOutputSizeExceedsLimit e ->
         verifySelectionOutputSizeExceedsLimitError cs ps e
@@ -1154,8 +1164,9 @@ newtype FailureToVerifySelectionOutputSizeExceedsLimitError address =
     deriving (Eq, Show)
 
 verifySelectionOutputSizeExceedsLimitError
-    :: VerifySelectionError
-        (SelectionOutputSizeExceedsLimitError Address) Address u
+    :: Show address
+    => VerifySelectionError
+        (SelectionOutputSizeExceedsLimitError address) address u
 verifySelectionOutputSizeExceedsLimitError cs _ps e =
     verify
         (not isWithinLimit)
@@ -1181,8 +1192,9 @@ newtype FailureToVerifySelectionOutputTokenQuantityExceedsLimitError address =
     deriving (Eq, Show)
 
 verifySelectionOutputTokenQuantityExceedsLimitError
-    :: VerifySelectionError
-        (SelectionOutputTokenQuantityExceedsLimitError Address) Address u
+    :: Show address
+    => VerifySelectionError
+        (SelectionOutputTokenQuantityExceedsLimitError address) address u
 verifySelectionOutputTokenQuantityExceedsLimitError _cs _ps e =
     verify
         (e ^. #quantity > e ^. #quantityMaxBound)
@@ -1196,14 +1208,14 @@ verifySelectionOutputTokenQuantityExceedsLimitError _cs _ps e =
 --
 -- See 'SelectionDelta'.
 --
-selectionDeltaAllAssets :: Selection Address u -> SelectionDelta TokenBundle
+selectionDeltaAllAssets :: Selection address u -> SelectionDelta TokenBundle
 selectionDeltaAllAssets = Balance.selectionDeltaAllAssets . toBalanceResult
 
 -- | Calculates the ada selection delta.
 --
 -- See 'SelectionDelta'.
 --
-selectionDeltaCoin :: Selection Address u -> SelectionDelta Coin
+selectionDeltaCoin :: Selection address u -> SelectionDelta Coin
 selectionDeltaCoin = fmap TokenBundle.getCoin . selectionDeltaAllAssets
 
 -- | Indicates whether or not a selection has a valid surplus.
@@ -1215,9 +1227,9 @@ selectionDeltaCoin = fmap TokenBundle.getCoin . selectionDeltaAllAssets
 -- See 'SelectionDelta'.
 --
 selectionHasValidSurplus
-    :: SelectionConstraints Address
-    -> SelectionParams Address u
-    -> Selection Address u
+    :: SelectionConstraints address
+    -> SelectionParams address u
+    -> Selection address u
     -> Bool
 selectionHasValidSurplus constraints params selection =
     Balance.selectionHasValidSurplus
@@ -1227,9 +1239,9 @@ selectionHasValidSurplus constraints params selection =
 -- | Computes the minimum required cost of a selection.
 --
 selectionMinimumCost
-    :: SelectionConstraints Address
-    -> SelectionParams Address u
-    -> Selection Address u
+    :: SelectionConstraints address
+    -> SelectionParams address u
+    -> Selection address u
     -> Coin
 selectionMinimumCost constraints params selection =
     Balance.selectionMinimumCost
@@ -1239,9 +1251,9 @@ selectionMinimumCost constraints params selection =
 -- | Computes the maximum acceptable cost of a selection.
 --
 selectionMaximumCost
-    :: SelectionConstraints Address
-    -> SelectionParams Address u
-    -> Selection Address u
+    :: SelectionConstraints address
+    -> SelectionParams address u
+    -> Selection address u
     -> Coin
 selectionMaximumCost constraints params selection =
     Balance.selectionMaximumCost
@@ -1256,7 +1268,7 @@ selectionMaximumCost constraints params selection =
 -- Use 'selectionDeltaCoin' if you wish to handle the case where there is
 -- a deficit.
 --
-selectionSurplusCoin :: Selection Address u -> Coin
+selectionSurplusCoin :: Selection address u -> Coin
 selectionSurplusCoin = Balance.selectionSurplusCoin . toBalanceResult
 
 --------------------------------------------------------------------------------
@@ -1274,7 +1286,7 @@ data SelectionCollateralRequirement
 
 -- | Indicates 'True' if and only if collateral is required.
 --
-selectionCollateralRequired :: SelectionParams Address u -> Bool
+selectionCollateralRequired :: SelectionParams address u -> Bool
 selectionCollateralRequired params = case view #collateralRequirement params of
     SelectionCollateralRequired    -> True
     SelectionCollateralNotRequired -> False
@@ -1282,7 +1294,7 @@ selectionCollateralRequired params = case view #collateralRequirement params of
 -- | Applies the given transformation function only when collateral is required.
 --
 whenCollateralRequired
-    :: SelectionParams Address u
+    :: SelectionParams address u
     -> (a -> a)
     -> (a -> a)
 whenCollateralRequired params f
@@ -1291,15 +1303,15 @@ whenCollateralRequired params f
 
 -- | Computes the total amount of collateral within a selection.
 --
-selectionCollateral :: Selection Address u -> Coin
+selectionCollateral :: Selection address u -> Coin
 selectionCollateral = F.foldMap snd . view #collateral
 
 -- | Indicates whether or not a selection has sufficient collateral.
 --
 selectionHasSufficientCollateral
-    :: SelectionConstraints Address
-    -> SelectionParams Address u
-    -> Selection Address u
+    :: SelectionConstraints address
+    -> SelectionParams address u
+    -> Selection address u
     -> Bool
 selectionHasSufficientCollateral constraints params selection =
     actual >= required
@@ -1310,9 +1322,9 @@ selectionHasSufficientCollateral constraints params selection =
 -- | Computes the minimum required amount of collateral for a selection.
 --
 selectionMinimumCollateral
-    :: SelectionConstraints Address
-    -> SelectionParams Address u
-    -> Selection Address u
+    :: SelectionConstraints address
+    -> SelectionParams address u
+    -> Selection address u
     -> Coin
 selectionMinimumCollateral constraints params selection
     | selectionCollateralRequired params =
@@ -1349,9 +1361,9 @@ computeMinimumCollateral params =
 -- | Prepares the given user-specified outputs, ensuring that they are valid.
 --
 prepareOutputsInternal
-    :: SelectionConstraints Address
-    -> [(Address, TokenBundle)]
-    -> Either (SelectionOutputError Address) [(Address, TokenBundle)]
+    :: forall address. SelectionConstraints address
+    -> [(address, TokenBundle)]
+    -> Either (SelectionOutputError address) [(address, TokenBundle)]
 prepareOutputsInternal constraints outputsUnprepared
     | e : _ <- excessivelyLargeBundles =
         Left $
@@ -1372,14 +1384,14 @@ prepareOutputsInternal constraints outputsUnprepared
 
     -- The complete list of token bundles whose serialized lengths are greater
     -- than the limit of what is allowed in a transaction output:
-    excessivelyLargeBundles :: [SelectionOutputSizeExceedsLimitError Address]
+    excessivelyLargeBundles :: [SelectionOutputSizeExceedsLimitError address]
     excessivelyLargeBundles =
         mapMaybe (verifyOutputSize constraints) outputsToCover
 
     -- The complete list of token quantities that exceed the maximum quantity
     -- allowed in a transaction output:
     excessiveTokenQuantities
-        :: [SelectionOutputTokenQuantityExceedsLimitError Address]
+        :: [SelectionOutputTokenQuantityExceedsLimitError address]
     excessiveTokenQuantities = verifyOutputTokenQuantities =<< outputsToCover
 
     outputsToCover =
@@ -1401,8 +1413,8 @@ prepareOutputsInternal constraints outputsUnprepared
 prepareOutputsWith
     :: Functor f
     => (TokenMap -> Coin)
-    -> f (Address, TokenBundle)
-    -> f (Address, TokenBundle)
+    -> f (address, TokenBundle)
+    -> f (address, TokenBundle)
 prepareOutputsWith minCoinValueFor =
     fmap $ fmap augmentBundle
   where
@@ -1434,9 +1446,9 @@ newtype SelectionOutputSizeExceedsLimitError address =
 -- exceeds the limit defined by the protocol.
 --
 verifyOutputSize
-    :: SelectionConstraints Address
-    -> (Address, TokenBundle)
-    -> Maybe (SelectionOutputSizeExceedsLimitError Address)
+    :: SelectionConstraints address
+    -> (address, TokenBundle)
+    -> Maybe (SelectionOutputSizeExceedsLimitError address)
 verifyOutputSize cs out
     | withinLimit =
         Nothing
@@ -1471,8 +1483,8 @@ data SelectionOutputTokenQuantityExceedsLimitError address =
 -- protocol.
 --
 verifyOutputTokenQuantities
-    :: (Address, TokenBundle)
-    -> [SelectionOutputTokenQuantityExceedsLimitError Address]
+    :: (address, TokenBundle)
+    -> [SelectionOutputTokenQuantityExceedsLimitError address]
 verifyOutputTokenQuantities out =
     [ SelectionOutputTokenQuantityExceedsLimitError
         {address, asset, quantity, quantityMaxBound = txOutMaxTokenQuantity}
