@@ -4326,7 +4326,7 @@ instance IsServerError SelectionOutputError where
         SelectionOutputTokenQuantityExceedsLimit e ->
             toServerError e
 
-instance IsServerError SelectionOutputSizeExceedsLimitError where
+instance IsServerError (SelectionOutputSizeExceedsLimitError Address) where
     toServerError e = apiError err403 OutputTokenBundleSizeExceedsLimit $
         mconcat
         [ "One of the outputs you've specified contains too many assets. "

@@ -786,14 +786,14 @@ verifySelectionOutputCoinsSufficient cs _ps selection =
 
 newtype FailureToVerifySelectionOutputSizesWithinLimit =
     FailureToVerifySelectionOutputSizesWithinLimit
-    (NonEmpty SelectionOutputSizeExceedsLimitError)
+    (NonEmpty (SelectionOutputSizeExceedsLimitError Address))
     deriving (Eq, Show)
 
 verifySelectionOutputSizesWithinLimit :: VerifySelection u
 verifySelectionOutputSizesWithinLimit cs _ps selection =
     verifyEmpty errors FailureToVerifySelectionOutputSizesWithinLimit
   where
-    errors :: [SelectionOutputSizeExceedsLimitError]
+    errors :: [SelectionOutputSizeExceedsLimitError Address]
     errors = mapMaybe (verifyOutputSize cs) (selectionAllOutputs selection)
 
 --------------------------------------------------------------------------------
@@ -1148,7 +1148,7 @@ newtype FailureToVerifySelectionOutputSizeExceedsLimitError =
     deriving (Eq, Show)
 
 verifySelectionOutputSizeExceedsLimitError
-    :: VerifySelectionError SelectionOutputSizeExceedsLimitError u
+    :: VerifySelectionError (SelectionOutputSizeExceedsLimitError Address) u
 verifySelectionOutputSizeExceedsLimitError cs _ps e =
     verify
         (not isWithinLimit)
@@ -1362,7 +1362,7 @@ prepareOutputsInternal constraints outputsUnprepared
 
     -- The complete list of token bundles whose serialized lengths are greater
     -- than the limit of what is allowed in a transaction output:
-    excessivelyLargeBundles :: [SelectionOutputSizeExceedsLimitError]
+    excessivelyLargeBundles :: [SelectionOutputSizeExceedsLimitError Address]
     excessivelyLargeBundles =
         mapMaybe (verifyOutputSize constraints) outputsToCover
 
@@ -1406,14 +1406,14 @@ prepareOutputsWith minCoinValueFor =
 --
 data SelectionOutputError
     = SelectionOutputSizeExceedsLimit
-        SelectionOutputSizeExceedsLimitError
+        (SelectionOutputSizeExceedsLimitError Address)
     | SelectionOutputTokenQuantityExceedsLimit
         SelectionOutputTokenQuantityExceedsLimitError
     deriving (Eq, Generic, Show)
 
-newtype SelectionOutputSizeExceedsLimitError =
+newtype SelectionOutputSizeExceedsLimitError address =
     SelectionOutputSizeExceedsLimitError
-    { outputThatExceedsLimit :: (Address, TokenBundle)
+    { outputThatExceedsLimit :: (address, TokenBundle)
     }
     deriving (Eq, Generic, Show)
 
@@ -1425,7 +1425,7 @@ newtype SelectionOutputSizeExceedsLimitError =
 verifyOutputSize
     :: SelectionConstraints Address
     -> (Address, TokenBundle)
-    -> Maybe SelectionOutputSizeExceedsLimitError
+    -> Maybe (SelectionOutputSizeExceedsLimitError Address)
 verifyOutputSize cs out
     | withinLimit =
         Nothing
