@@ -747,9 +747,9 @@ verifySelectionInputCountWithinLimit cs _ps selection =
 -- Selection verification: minimum ada quantities
 --------------------------------------------------------------------------------
 
-newtype FailureToVerifySelectionOutputCoinsSufficient =
+newtype FailureToVerifySelectionOutputCoinsSufficient address =
     FailureToVerifySelectionOutputCoinsSufficient
-    (NonEmpty (SelectionOutputCoinInsufficientError Address))
+    (NonEmpty (SelectionOutputCoinInsufficientError address))
     deriving (Eq, Show)
 
 data SelectionOutputCoinInsufficientError address =
