@@ -213,7 +213,7 @@ import qualified Data.Set as Set
 --
 --    - are not specific to a given selection.
 --
-data SelectionConstraints = SelectionConstraints
+data SelectionConstraints address = SelectionConstraints
     { assessTokenBundleSize
         :: TokenBundle -> TokenBundleSizeAssessment
         -- ^ Assesses the size of a token bundle relative to the upper limit of
@@ -224,10 +224,10 @@ data SelectionConstraints = SelectionConstraints
         :: TokenMap -> Coin
         -- ^ Computes the minimum ada quantity required for a given output.
     , computeMinimumCost
-        :: SelectionSkeleton Address -> Coin
+        :: SelectionSkeleton address -> Coin
         -- ^ Computes the minimum cost of a given selection skeleton.
     , computeSelectionLimit
-        :: [(Address, TokenBundle)] -> SelectionLimit
+        :: [(address, TokenBundle)] -> SelectionLimit
         -- ^ Computes an upper bound for the number of ordinary inputs to
         -- select, given a current set of outputs.
     }
@@ -607,7 +607,7 @@ selectionDeltaCoin = fmap TokenBundle.getCoin . selectionDeltaAllAssets
 --
 selectionHasValidSurplus
     :: Foldable outputs
-    => SelectionConstraints
+    => SelectionConstraints Address
     -> SelectionResultOf outputs u
     -> Bool
 selectionHasValidSurplus constraints selection =
@@ -667,7 +667,7 @@ selectionSkeleton s = SelectionSkeleton
 --
 selectionMinimumCost
     :: Foldable outputs
-    => SelectionConstraints
+    => SelectionConstraints Address
     -> SelectionResultOf outputs u
     -> Coin
 selectionMinimumCost c = view #computeMinimumCost c . selectionSkeleton
@@ -688,7 +688,7 @@ selectionMinimumCost c = view #computeMinimumCost c . selectionSkeleton
 --
 selectionMaximumCost
     :: Foldable outputs
-    => SelectionConstraints
+    => SelectionConstraints Address
     -> SelectionResultOf outputs u
     -> Coin
 selectionMaximumCost c = mtimesDefault (2 :: Int) . selectionMinimumCost c
@@ -775,7 +775,7 @@ data UnableToConstructChangeError = UnableToConstructChangeError
     } deriving (Generic, Eq, Show)
 
 type PerformSelection m outputs address u =
-    SelectionConstraints ->
+    SelectionConstraints address ->
     SelectionParamsOf outputs u ->
     m (Either (SelectionBalanceError u) (SelectionResultOf outputs u))
 

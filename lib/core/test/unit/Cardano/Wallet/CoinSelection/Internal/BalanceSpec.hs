@@ -804,7 +804,7 @@ prop_performSelection_small mockConstraints (Blind (Small params)) =
             . fmap snd
             $ view #outputsToCover params
 
-    constraints :: SelectionConstraints
+    constraints :: SelectionConstraints Address
     constraints = unMockSelectionConstraints mockConstraints
 
     selectionLimit :: SelectionLimit
@@ -923,7 +923,7 @@ prop_performSelection mockConstraints params coverage =
         monitor (coverage result)
         pure $ either onFailure onSuccess result
   where
-    constraints :: SelectionConstraints
+    constraints :: SelectionConstraints Address
     constraints = unMockSelectionConstraints mockConstraints
 
     SelectionParams
@@ -1107,7 +1107,7 @@ prop_performSelection mockConstraints params coverage =
         --
         -- We expect that the selection should succeed.
         --
-        let constraints' :: SelectionConstraints = constraints
+        let constraints' :: SelectionConstraints Address = constraints
                 { assessTokenBundleSize = unMockAssessTokenBundleSize
                     MockAssessTokenBundleSizeUnlimited
                 , computeMinimumAdaQuantity = computeMinimumAdaQuantityZero
@@ -1207,7 +1207,7 @@ prop_performSelectionEmpty mockConstraints (Small params) =
             , resultTransformed === (result & over #outputsCovered F.toList)
             ]
 
-    constraints :: SelectionConstraints
+    constraints :: SelectionConstraints Address
     constraints = unMockSelectionConstraints mockConstraints
 
     paramsTransformed :: SelectionParamsOf NonEmpty InputId
@@ -2457,7 +2457,9 @@ shrinkMockSelectionConstraints = genericRoundRobinShrink
     <:> shrinkMockComputeSelectionLimit
     <:> Nil
 
-unMockSelectionConstraints :: MockSelectionConstraints -> SelectionConstraints
+unMockSelectionConstraints
+    :: MockSelectionConstraints
+    -> SelectionConstraints Address
 unMockSelectionConstraints m = SelectionConstraints
     { assessTokenBundleSize =
         unMockAssessTokenBundleSize $ view #assessTokenBundleSize m
