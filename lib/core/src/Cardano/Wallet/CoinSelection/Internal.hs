@@ -162,7 +162,7 @@ data SelectionConstraints = SelectionConstraints
         :: TokenMap -> Coin
         -- ^ Computes the minimum ada quantity required for a given output.
     , computeMinimumCost
-        :: SelectionSkeleton -> Coin
+        :: SelectionSkeleton Address -> Coin
         -- ^ Computes the minimum cost of a given selection skeleton.
     , computeSelectionLimit
         :: [(Address, TokenBundle)] -> SelectionLimit
@@ -378,8 +378,8 @@ toBalanceConstraintsParams (constraints, params) =
         }
       where
         adjustComputeMinimumCost
-            :: (SelectionSkeleton -> Coin)
-            -> (SelectionSkeleton -> Coin)
+            :: (SelectionSkeleton Address -> Coin)
+            -> (SelectionSkeleton Address -> Coin)
         adjustComputeMinimumCost =
             whenCollateralRequired params (. adjustSelectionSkeleton)
           where
@@ -399,7 +399,9 @@ toBalanceConstraintsParams (constraints, params) =
             -- small, and since the marginal cost of a single extra input is
             -- relatively small, this fee increase is likely to be very small.
             --
-            adjustSelectionSkeleton :: SelectionSkeleton -> SelectionSkeleton
+            adjustSelectionSkeleton
+                :: SelectionSkeleton Address
+                -> SelectionSkeleton Address
             adjustSelectionSkeleton = over #skeletonInputCount
                 (+ view #maximumCollateralInputCount constraints)
 

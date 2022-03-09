@@ -224,7 +224,7 @@ data SelectionConstraints = SelectionConstraints
         :: TokenMap -> Coin
         -- ^ Computes the minimum ada quantity required for a given output.
     , computeMinimumCost
-        :: SelectionSkeleton -> Coin
+        :: SelectionSkeleton Address -> Coin
         -- ^ Computes the minimum cost of a given selection skeleton.
     , computeSelectionLimit
         :: [(Address, TokenBundle)] -> SelectionLimit
@@ -443,11 +443,11 @@ isUTxOBalanceSufficient params =
 -- Increasing or decreasing the quantity of a particular asset in a change
 -- output must not change the estimated cost of a selection.
 --
-data SelectionSkeleton = SelectionSkeleton
+data SelectionSkeleton address = SelectionSkeleton
     { skeletonInputCount
         :: !Int
     , skeletonOutputs
-        :: ![(Address, TokenBundle)]
+        :: ![(address, TokenBundle)]
     , skeletonChange
         :: ![Set AssetId]
     }
@@ -654,7 +654,9 @@ selectionSurplusCoin result =
 -- | Converts a selection into a skeleton.
 --
 selectionSkeleton
-    :: Foldable outputs => SelectionResultOf outputs u -> SelectionSkeleton
+    :: Foldable outputs
+    => SelectionResultOf outputs u
+    -> SelectionSkeleton Address
 selectionSkeleton s = SelectionSkeleton
     { skeletonInputCount = F.length (view #inputsSelected s)
     , skeletonOutputs = F.toList (view #outputsCovered s)

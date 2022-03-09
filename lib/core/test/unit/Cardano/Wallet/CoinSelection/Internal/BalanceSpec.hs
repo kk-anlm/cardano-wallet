@@ -2534,17 +2534,17 @@ shrinkMockComputeMinimumCost = \case
         [MockComputeMinimumCostZero]
 
 unMockComputeMinimumCost
-    :: MockComputeMinimumCost -> (SelectionSkeleton -> Coin)
+    :: MockComputeMinimumCost -> (SelectionSkeleton Address -> Coin)
 unMockComputeMinimumCost = \case
     MockComputeMinimumCostZero ->
         computeMinimumCostZero
     MockComputeMinimumCostLinear ->
         computeMinimumCostLinear
 
-computeMinimumCostZero :: SelectionSkeleton -> Coin
+computeMinimumCostZero :: SelectionSkeleton Address -> Coin
 computeMinimumCostZero = const $ Coin 0
 
-computeMinimumCostLinear :: SelectionSkeleton -> Coin
+computeMinimumCostLinear :: SelectionSkeleton Address -> Coin
 computeMinimumCostLinear s
     = Coin
     $ fromIntegral
