@@ -104,7 +104,6 @@ import Cardano.Wallet.Primitive.AddressDerivation
     , hex
     , liftRawKey
     , paymentAddress
-    , preparePassphrase
     , publicKey
     )
 import Cardano.Wallet.Primitive.AddressDerivation.Byron
