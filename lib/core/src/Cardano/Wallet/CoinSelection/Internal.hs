@@ -613,10 +613,10 @@ verifyEmpty xs failureReason =
 
 -- | The type of all 'Selection' verification functions.
 --
-type VerifySelection u =
-    SelectionConstraints Address ->
-    SelectionParams Address u ->
-    Selection Address u ->
+type VerifySelection address u =
+    SelectionConstraints address ->
+    SelectionParams address u ->
+    Selection address u ->
     VerificationResult
 
 -- | Verifies a 'Selection' for correctness.
@@ -625,7 +625,7 @@ type VerifySelection u =
 -- it's not usually necessary to call this function from ordinary application
 -- code, unless you suspect that a 'Selection' is incorrect in some way.
 --
-verifySelection :: (Ord u, Show u) => VerifySelection u
+verifySelection :: (Ord u, Show u) => VerifySelection Address u
 verifySelection = mconcat
     [ verifySelectionCollateralSufficient
     , verifySelectionCollateralSuitable
@@ -647,7 +647,7 @@ data FailureToVerifySelectionCollateralSufficient =
     }
     deriving (Eq, Show)
 
-verifySelectionCollateralSufficient :: VerifySelection u
+verifySelectionCollateralSufficient :: VerifySelection Address u
 verifySelectionCollateralSufficient cs ps selection =
     verify
         (collateralSelected >= collateralRequired)
@@ -670,7 +670,7 @@ data FailureToVerifySelectionCollateralSuitable u =
     deriving (Eq, Show)
 
 verifySelectionCollateralSuitable
-    :: forall u. (Ord u, Show u) => VerifySelection u
+    :: forall u. (Ord u, Show u) => VerifySelection Address u
 verifySelectionCollateralSuitable _cs ps selection =
     verify
         (null collateralSelectedButUnsuitable)
@@ -705,7 +705,7 @@ data FailureToVerifySelectionDeltaValid = FailureToVerifySelectionDeltaValid
     }
     deriving (Eq, Show)
 
-verifySelectionDeltaValid :: VerifySelection u
+verifySelectionDeltaValid :: VerifySelection Address u
 verifySelectionDeltaValid cs ps selection =
     verify
         (selectionHasValidSurplus cs ps selection)
@@ -732,7 +732,7 @@ data FailureToVerifySelectionInputCountWithinLimit =
     }
     deriving (Eq, Show)
 
-verifySelectionInputCountWithinLimit :: VerifySelection u
+verifySelectionInputCountWithinLimit :: VerifySelection Address u
 verifySelectionInputCountWithinLimit cs _ps selection =
     verify
         (Balance.MaximumInputLimit totalInputCount <= selectionLimit)
@@ -758,7 +758,7 @@ data SelectionOutputCoinInsufficientError = SelectionOutputCoinInsufficientError
     }
     deriving (Eq, Show)
 
-verifySelectionOutputCoinsSufficient :: VerifySelection u
+verifySelectionOutputCoinsSufficient :: VerifySelection Address u
 verifySelectionOutputCoinsSufficient cs _ps selection =
     verifyEmpty errors FailureToVerifySelectionOutputCoinsSufficient
   where
@@ -789,7 +789,7 @@ newtype FailureToVerifySelectionOutputSizesWithinLimit =
     (NonEmpty (SelectionOutputSizeExceedsLimitError Address))
     deriving (Eq, Show)
 
-verifySelectionOutputSizesWithinLimit :: VerifySelection u
+verifySelectionOutputSizesWithinLimit :: VerifySelection Address u
 verifySelectionOutputSizesWithinLimit cs _ps selection =
     verifyEmpty errors FailureToVerifySelectionOutputSizesWithinLimit
   where
@@ -805,7 +805,7 @@ newtype FailureToVerifySelectionOutputTokenQuantitiesWithinLimit =
     (NonEmpty (SelectionOutputTokenQuantityExceedsLimitError Address))
     deriving (Eq, Show)
 
-verifySelectionOutputTokenQuantitiesWithinLimit :: VerifySelection u
+verifySelectionOutputTokenQuantitiesWithinLimit :: VerifySelection Address u
 verifySelectionOutputTokenQuantitiesWithinLimit _cs _ps selection =
     verifyEmpty errors FailureToVerifySelectionOutputTokenQuantitiesWithinLimit
   where
