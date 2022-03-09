@@ -1173,10 +1173,10 @@ verifySelectionOutputSizeExceedsLimitError cs _ps e =
 -- Selection error verification: output token quantity errors
 --------------------------------------------------------------------------------
 
-newtype FailureToVerifySelectionOutputTokenQuantityExceedsLimitError =
+newtype FailureToVerifySelectionOutputTokenQuantityExceedsLimitError address =
     FailureToVerifySelectionOutputTokenQuantityExceedsLimitError
         { reportedError
-            :: SelectionOutputTokenQuantityExceedsLimitError Address
+            :: SelectionOutputTokenQuantityExceedsLimitError address
         }
     deriving (Eq, Show)
 
