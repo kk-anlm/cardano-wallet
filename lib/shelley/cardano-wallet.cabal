@@ -71,6 +71,7 @@ library
     , network
     , network-mux
     , network-uri
+    , ntp-client
     , optparse-applicative
     , ouroboros-consensus
     , ouroboros-consensus-byron
