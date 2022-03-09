@@ -272,10 +272,10 @@ data Selection address u = Selection
 
 -- | Provides a context for functions related to 'performSelection'.
 
-type PerformSelection m a u =
-    SelectionConstraints Address ->
-    SelectionParams Address u ->
-    ExceptT (SelectionError Address u) m a
+type PerformSelection m address a u =
+    SelectionConstraints address ->
+    SelectionParams address u ->
+    ExceptT (SelectionError address u) m a
 
 --------------------------------------------------------------------------------
 -- Performing a selection
@@ -305,12 +305,12 @@ type PerformSelection m a u =
 --
 performSelection
     :: (HasCallStack, MonadRandom m, Ord u, Show u)
-    => PerformSelection m (Selection Address u) u
+    => PerformSelection m Address (Selection Address u) u
 performSelection cs = performSelectionInner cs <=< prepareOutputs cs
 
 performSelectionInner
     :: (HasCallStack, MonadRandom m, Ord u, Show u)
-    => PerformSelection m (Selection Address u) u
+    => PerformSelection m Address (Selection Address u) u
 performSelectionInner cs ps = do
     balanceResult <- performSelectionBalance cs ps
     collateralResult <- performSelectionCollateral balanceResult cs ps
@@ -318,7 +318,7 @@ performSelectionInner cs ps = do
 
 prepareOutputs
     :: Applicative m
-    => PerformSelection m (SelectionParams Address u) u
+    => PerformSelection m Address (SelectionParams Address u) u
 prepareOutputs cs ps =
     withExceptT SelectionOutputErrorOf $ ExceptT $ pure $
     flip (set #outputsToCover) ps <$>
@@ -326,7 +326,7 @@ prepareOutputs cs ps =
 
 performSelectionBalance
     :: (HasCallStack, MonadRandom m, Ord u, Show u)
-    => PerformSelection m (Balance.SelectionResult Address u) u
+    => PerformSelection m Address (Balance.SelectionResult Address u) u
 performSelectionBalance cs ps =
     withExceptT SelectionBalanceErrorOf $ ExceptT $
     uncurry Balance.performSelection $ toBalanceConstraintsParams (cs, ps)
@@ -334,7 +334,7 @@ performSelectionBalance cs ps =
 performSelectionCollateral
     :: (Applicative m, Ord u)
     => Balance.SelectionResult Address u
-    -> PerformSelection m (Collateral.SelectionResult u) u
+    -> PerformSelection m Address (Collateral.SelectionResult u) u
 performSelectionCollateral balanceResult cs ps
     | selectionCollateralRequired ps =
         withExceptT SelectionCollateralErrorOf $ ExceptT $ pure $
