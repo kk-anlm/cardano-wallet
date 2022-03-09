@@ -802,14 +802,14 @@ verifySelectionOutputSizesWithinLimit cs _ps selection =
 
 newtype FailureToVerifySelectionOutputTokenQuantitiesWithinLimit =
     FailureToVerifySelectionOutputTokenQuantitiesWithinLimit
-    (NonEmpty SelectionOutputTokenQuantityExceedsLimitError)
+    (NonEmpty (SelectionOutputTokenQuantityExceedsLimitError Address))
     deriving (Eq, Show)
 
 verifySelectionOutputTokenQuantitiesWithinLimit :: VerifySelection u
 verifySelectionOutputTokenQuantitiesWithinLimit _cs _ps selection =
     verifyEmpty errors FailureToVerifySelectionOutputTokenQuantitiesWithinLimit
   where
-    errors :: [SelectionOutputTokenQuantityExceedsLimitError]
+    errors :: [SelectionOutputTokenQuantityExceedsLimitError Address]
     errors = verifyOutputTokenQuantities =<< selectionAllOutputs selection
 
 --------------------------------------------------------------------------------
@@ -1168,11 +1168,14 @@ verifySelectionOutputSizeExceedsLimitError cs _ps e =
 
 newtype FailureToVerifySelectionOutputTokenQuantityExceedsLimitError =
     FailureToVerifySelectionOutputTokenQuantityExceedsLimitError
-        { reportedError :: SelectionOutputTokenQuantityExceedsLimitError }
+        { reportedError
+            :: SelectionOutputTokenQuantityExceedsLimitError Address
+        }
     deriving (Eq, Show)
 
 verifySelectionOutputTokenQuantityExceedsLimitError
-    :: VerifySelectionError SelectionOutputTokenQuantityExceedsLimitError u
+    :: VerifySelectionError
+        (SelectionOutputTokenQuantityExceedsLimitError Address) u
 verifySelectionOutputTokenQuantityExceedsLimitError _cs _ps e =
     verify
         (e ^. #quantity > e ^. #quantityMaxBound)
@@ -1368,7 +1371,8 @@ prepareOutputsInternal constraints outputsUnprepared
 
     -- The complete list of token quantities that exceed the maximum quantity
     -- allowed in a transaction output:
-    excessiveTokenQuantities :: [SelectionOutputTokenQuantityExceedsLimitError]
+    excessiveTokenQuantities
+        :: [SelectionOutputTokenQuantityExceedsLimitError Address]
     excessiveTokenQuantities = verifyOutputTokenQuantities =<< outputsToCover
 
     outputsToCover =
@@ -1408,7 +1412,7 @@ data SelectionOutputError
     = SelectionOutputSizeExceedsLimit
         (SelectionOutputSizeExceedsLimitError Address)
     | SelectionOutputTokenQuantityExceedsLimit
-        SelectionOutputTokenQuantityExceedsLimitError
+        (SelectionOutputTokenQuantityExceedsLimitError Address)
     deriving (Eq, Generic, Show)
 
 newtype SelectionOutputSizeExceedsLimitError address =
@@ -1441,9 +1445,9 @@ verifyOutputSize cs out
 -- | Indicates that a token quantity exceeds the maximum quantity that can
 --   appear in a transaction output's token bundle.
 --
-data SelectionOutputTokenQuantityExceedsLimitError =
+data SelectionOutputTokenQuantityExceedsLimitError address =
     SelectionOutputTokenQuantityExceedsLimitError
-    { address :: !Address
+    { address :: !address
       -- ^ The address to which this token quantity was to be sent.
     , asset :: !AssetId
       -- ^ The asset identifier to which this token quantity corresponds.
@@ -1460,7 +1464,8 @@ data SelectionOutputTokenQuantityExceedsLimitError =
 -- protocol.
 --
 verifyOutputTokenQuantities
-    :: (Address, TokenBundle) -> [SelectionOutputTokenQuantityExceedsLimitError]
+    :: (Address, TokenBundle)
+    -> [SelectionOutputTokenQuantityExceedsLimitError Address]
 verifyOutputTokenQuantities out =
     [ SelectionOutputTokenQuantityExceedsLimitError
         {address, asset, quantity, quantityMaxBound = txOutMaxTokenQuantity}

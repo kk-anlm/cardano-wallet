@@ -4340,7 +4340,8 @@ instance IsServerError (SelectionOutputSizeExceedsLimitError Address) where
       where
         output = view #outputThatExceedsLimit e
 
-instance IsServerError SelectionOutputTokenQuantityExceedsLimitError where
+instance IsServerError (SelectionOutputTokenQuantityExceedsLimitError Address)
+  where
     toServerError e = apiError err403 OutputTokenQuantityExceedsLimit $ mconcat
         [ "One of the token quantities you've specified is greater than the "
         , "maximum quantity allowed in a single transaction output. Try "
