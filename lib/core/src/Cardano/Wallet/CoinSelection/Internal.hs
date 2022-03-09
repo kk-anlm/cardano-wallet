@@ -983,13 +983,13 @@ verifySelectionLimitReachedError cs ps e =
 -- Selection error verification: change construction errors
 --------------------------------------------------------------------------------
 
-data FailureToVerifyUnableToConstructChangeError u =
+data FailureToVerifyUnableToConstructChangeError address u =
     FailureToVerifyUnableToConstructChangeError
         { errorOriginal
             :: Balance.UnableToConstructChangeError
             -- ^ The original error.
         , errorWithMinimalConstraints
-            :: SelectionError Address u
+            :: SelectionError address u
             -- ^ An error encountered when attempting to re-run the selection
             -- process with minimal constraints.
         }
