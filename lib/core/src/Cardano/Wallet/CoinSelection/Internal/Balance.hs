@@ -701,13 +701,13 @@ selectionMaximumCost c = mtimesDefault (2 :: Int) . selectionMinimumCost c
 
 -- | Represents the set of errors that may occur while performing a selection.
 --
-data SelectionBalanceError u
+data SelectionBalanceError address u
     = BalanceInsufficient
         BalanceInsufficientError
     | SelectionLimitReached
-        (SelectionLimitReachedError Address u)
+        (SelectionLimitReachedError address u)
     | InsufficientMinCoinValues
-        (NonEmpty (InsufficientMinCoinValueError Address))
+        (NonEmpty (InsufficientMinCoinValueError address))
     | UnableToConstructChange
         UnableToConstructChangeError
     | EmptyUTxO
@@ -785,7 +785,11 @@ data UnableToConstructChangeError = UnableToConstructChangeError
 type PerformSelection m outputs address u =
     SelectionConstraints address ->
     SelectionParamsOf outputs address u ->
-    m (Either (SelectionBalanceError u) (SelectionResultOf outputs address u))
+    m (
+        Either
+            (SelectionBalanceError address u)
+            (SelectionResultOf outputs address u)
+    )
 
 -- | Performs a coin selection and generates change bundles in one step.
 --
@@ -927,7 +931,7 @@ performSelectionNonEmpty constraints params
         } = params
 
     selectionLimitReachedError
-        :: [(u, TokenBundle)] -> m (Either (SelectionBalanceError u) a)
+        :: [(u, TokenBundle)] -> m (Either (SelectionBalanceError Address u) a)
     selectionLimitReachedError inputsSelected =
         pure $ Left $ SelectionLimitReached $ SelectionLimitReachedError
             { inputsSelected
@@ -1038,7 +1042,7 @@ performSelectionNonEmpty constraints params
         :: UTxOSelectionNonEmpty u
         -> m
             (Either
-                (SelectionBalanceError u)
+                (SelectionBalanceError Address u)
                 (SelectionResultOf NonEmpty Address u)
             )
     makeChangeRepeatedly s = case mChangeGenerated of

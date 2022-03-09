@@ -233,7 +233,7 @@ data SelectionParams u = SelectionParams
 --
 data SelectionError u
     = SelectionBalanceErrorOf
-      (SelectionBalanceError u)
+      (SelectionBalanceError Address u)
     | SelectionCollateralErrorOf
       (SelectionCollateralError u)
     | SelectionOutputErrorOf
@@ -846,7 +846,8 @@ verifySelectionError cs ps = \case
 --------------------------------------------------------------------------------
 
 verifySelectionBalanceError
-    :: (Ord u, Show u) => VerifySelectionError (SelectionBalanceError u) u
+    :: (Ord u, Show u)
+    => VerifySelectionError (SelectionBalanceError Address u) u
 verifySelectionBalanceError cs ps = \case
     Balance.BalanceInsufficient e ->
         verifyBalanceInsufficientError cs ps e

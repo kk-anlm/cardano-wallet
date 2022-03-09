@@ -623,8 +623,9 @@ prop_AssetCount_TokenMap_placesEmptyMapsFirst maps =
 --
 -- We define this type alias to shorten type signatures.
 --
-type PerformSelectionResult =
-    Either (SelectionBalanceError InputId) (SelectionResult Address InputId)
+type PerformSelectionResult = Either
+    (SelectionBalanceError Address InputId)
+    (SelectionResult Address InputId)
 
 genSelectionParams
     :: Gen (InputId -> Bool)
@@ -1001,7 +1002,7 @@ prop_performSelection mockConstraints params coverage =
                 (view #inputsSelected result <&> fst)
                 (view #utxoAvailable params)
 
-    onFailure :: SelectionBalanceError InputId -> Property
+    onFailure :: SelectionBalanceError Address InputId -> Property
     onFailure = \case
         BalanceInsufficient e ->
             onBalanceInsufficient e
