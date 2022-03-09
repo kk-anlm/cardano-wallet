@@ -903,9 +903,9 @@ verifyEmptyUTxOError _cs SelectionParams {utxoAvailableForInputs} _e =
 -- Selection error verification: insufficient minimum ada quantity errors
 --------------------------------------------------------------------------------
 
-data FailureToVerifyInsufficientMinCoinValueError =
+data FailureToVerifyInsufficientMinCoinValueError address =
     FailureToVerifyInsufficientMinCoinValueError
-    { reportedOutput :: (Address, TokenBundle)
+    { reportedOutput :: (address, TokenBundle)
     , reportedMinCoinValue :: Coin
     , verifiedMinCoinValue :: Coin
     }
