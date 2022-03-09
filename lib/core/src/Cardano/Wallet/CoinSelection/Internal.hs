@@ -785,9 +785,9 @@ verifySelectionOutputCoinsSufficient cs _ps selection =
 -- Selection verification: output sizes
 --------------------------------------------------------------------------------
 
-newtype FailureToVerifySelectionOutputSizesWithinLimit =
+newtype FailureToVerifySelectionOutputSizesWithinLimit address =
     FailureToVerifySelectionOutputSizesWithinLimit
-    (NonEmpty (SelectionOutputSizeExceedsLimitError Address))
+    (NonEmpty (SelectionOutputSizeExceedsLimitError address))
     deriving (Eq, Show)
 
 verifySelectionOutputSizesWithinLimit :: VerifySelection Address u
