@@ -114,7 +114,7 @@ import Cardano.Wallet.Shelley.Compatibility
 import Cardano.Wallet.Shelley.Logging as Logging
     ( ApplicationLog (..) )
 import Cardano.Wallet.Shelley.Network
-    ( NetworkLayerLog, withNetworkLayer )
+    ( NetworkLayerLog )
 import Cardano.Wallet.Shelley.Pools
     ( StakePoolLayer (..)
     , StakePoolLog (..)
@@ -183,6 +183,7 @@ import qualified Cardano.Pool.DB as PoolDb
 import qualified Cardano.Pool.DB.Sqlite as Pool
 import qualified Cardano.Wallet.Api.Server as Server
 import qualified Cardano.Wallet.DB.Sqlite as Sqlite
+import qualified Cardano.Wallet.Shelley.Network as Network
 import qualified Network.Wai.Handler.Warp as Warp
 
 -- | Encapsulate a network discriminant and the necessary constraints it should
@@ -264,7 +265,7 @@ serveWallet
         NodeSource nodeConn _ -> trace $ MsgStartingNode nodeConn
         BlockfrostSource project -> trace $ MsgStartingLite project
     lift . trace $ MsgNetworkName $ networkName proxyNetwork
-    netLayer <- withNetLayer
+    netLayer <- withNetworkLayer
         networkTracer
         blockchainSrc
         net
@@ -457,7 +458,7 @@ withStakePoolLayer tr settings dbLayer@DBLayer{..} netParams netLayer =
             killThread >=> const startMetadataThread
     newStakePoolLayer gcStatus netLayer dbLayer restartMetadataThread
 
-withNetLayer
+withNetworkLayer
     :: HasCallStack
     => Tracer IO NetworkLayerLog
     -> BlockchainSource
@@ -465,10 +466,10 @@ withNetLayer
     -> NetworkParameters
     -> SyncTolerance
     -> ContT r IO (NetworkLayer IO (CardanoBlock StandardCrypto) )
-withNetLayer tr blockchainSrc net netParams tol =
+withNetworkLayer tr blockchainSrc net netParams tol =
     ContT $ case blockchainSrc of
         NodeSource nodeConn ver ->
-            withNetworkLayer tr net netParams nodeConn ver tol
+            Network.withNetworkLayer tr net netParams nodeConn ver tol
         BlockfrostSource project ->
             withBlockfrostNetworkLayer project
 
