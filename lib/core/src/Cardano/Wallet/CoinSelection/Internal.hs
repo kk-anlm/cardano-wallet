@@ -181,7 +181,7 @@ data SelectionConstraints address = SelectionConstraints
 
 -- | Specifies all parameters that are specific to a given selection.
 --
-data SelectionParams u = SelectionParams
+data SelectionParams address u = SelectionParams
     { assetsToBurn
         :: !TokenMap
         -- ^ Specifies a set of assets to burn.
@@ -195,7 +195,7 @@ data SelectionParams u = SelectionParams
         :: !Coin
         -- ^ Specifies extra 'Coin' out.
     , outputsToCover
-        :: ![(Address, TokenBundle)]
+        :: ![(address, TokenBundle)]
         -- ^ Specifies a set of outputs that must be paid for.
     , rewardWithdrawal
         :: !Coin
@@ -274,7 +274,7 @@ data Selection u = Selection
 
 type PerformSelection m a u =
     SelectionConstraints Address ->
-    SelectionParams u ->
+    SelectionParams Address u ->
     ExceptT (SelectionError u) m a
 
 --------------------------------------------------------------------------------
@@ -318,7 +318,7 @@ performSelectionInner cs ps = do
 
 prepareOutputs
     :: Applicative m
-    => PerformSelection m (SelectionParams u) u
+    => PerformSelection m (SelectionParams Address u) u
 prepareOutputs cs ps =
     withExceptT SelectionOutputErrorOf $ ExceptT $ pure $
     flip (set #outputsToCover) ps <$>
@@ -359,7 +359,7 @@ selectionAllOutputs selection = (<>)
 -- | Creates constraints and parameters for 'Balance.performSelection'.
 --
 toBalanceConstraintsParams
-    :: (        SelectionConstraints Address,         SelectionParams         u)
+    :: (        SelectionConstraints Address,         SelectionParams Address u)
     -> (Balance.SelectionConstraints Address, Balance.SelectionParams Address u)
 toBalanceConstraintsParams (constraints, params) =
     (balanceConstraints, balanceParams)
@@ -448,9 +448,9 @@ toBalanceConstraintsParams (constraints, params) =
 -- | Creates constraints and parameters for 'Collateral.performSelection'.
 --
 toCollateralConstraintsParams
-    :: Balance.SelectionResult Address u
-    -> (           SelectionConstraints Address,            SelectionParams u)
-    -> (Collateral.SelectionConstraints        , Collateral.SelectionParams u)
+    :: Balance.SelectionResult a u
+    -> (           SelectionConstraints a,            SelectionParams a u)
+    -> (Collateral.SelectionConstraints  , Collateral.SelectionParams   u)
 toCollateralConstraintsParams balanceResult (constraints, params) =
     (collateralConstraints, collateralParams)
   where
@@ -480,7 +480,7 @@ toCollateralConstraintsParams balanceResult (constraints, params) =
 -- | Creates a 'Selection' from selections of inputs and collateral.
 --
 mkSelection
-    :: SelectionParams u
+    :: SelectionParams Address u
     -> Balance.SelectionResult Address u
     -> Collateral.SelectionResult u
     -> Selection u
@@ -615,7 +615,7 @@ verifyEmpty xs failureReason =
 --
 type VerifySelection u =
     SelectionConstraints Address ->
-    SelectionParams u ->
+    SelectionParams Address u ->
     Selection u ->
     VerificationResult
 
@@ -820,7 +820,7 @@ verifySelectionOutputTokenQuantitiesWithinLimit _cs _ps selection =
 --
 type VerifySelectionError e u =
     SelectionConstraints Address ->
-    SelectionParams u ->
+    SelectionParams Address u ->
     e ->
     VerificationResult
 
@@ -1206,7 +1206,7 @@ selectionDeltaCoin = fmap TokenBundle.getCoin . selectionDeltaAllAssets
 --
 selectionHasValidSurplus
     :: SelectionConstraints Address
-    -> SelectionParams u
+    -> SelectionParams Address u
     -> Selection u
     -> Bool
 selectionHasValidSurplus constraints params selection =
@@ -1218,7 +1218,7 @@ selectionHasValidSurplus constraints params selection =
 --
 selectionMinimumCost
     :: SelectionConstraints Address
-    -> SelectionParams u
+    -> SelectionParams Address u
     -> Selection u
     -> Coin
 selectionMinimumCost constraints params selection =
@@ -1230,7 +1230,7 @@ selectionMinimumCost constraints params selection =
 --
 selectionMaximumCost
     :: SelectionConstraints Address
-    -> SelectionParams u
+    -> SelectionParams Address u
     -> Selection u
     -> Coin
 selectionMaximumCost constraints params selection =
@@ -1264,7 +1264,7 @@ data SelectionCollateralRequirement
 
 -- | Indicates 'True' if and only if collateral is required.
 --
-selectionCollateralRequired :: SelectionParams u -> Bool
+selectionCollateralRequired :: SelectionParams Address u -> Bool
 selectionCollateralRequired params = case view #collateralRequirement params of
     SelectionCollateralRequired    -> True
     SelectionCollateralNotRequired -> False
@@ -1272,7 +1272,7 @@ selectionCollateralRequired params = case view #collateralRequirement params of
 -- | Applies the given transformation function only when collateral is required.
 --
 whenCollateralRequired
-    :: SelectionParams u
+    :: SelectionParams Address u
     -> (a -> a)
     -> (a -> a)
 whenCollateralRequired params f
@@ -1288,7 +1288,7 @@ selectionCollateral = F.foldMap snd . view #collateral
 --
 selectionHasSufficientCollateral
     :: SelectionConstraints Address
-    -> SelectionParams u
+    -> SelectionParams Address u
     -> Selection u
     -> Bool
 selectionHasSufficientCollateral constraints params selection =
@@ -1301,7 +1301,7 @@ selectionHasSufficientCollateral constraints params selection =
 --
 selectionMinimumCollateral
     :: SelectionConstraints Address
-    -> SelectionParams u
+    -> SelectionParams Address u
     -> Selection u
     -> Coin
 selectionMinimumCollateral constraints params selection

@@ -239,7 +239,9 @@ data SelectionParams = SelectionParams
     }
     deriving (Eq, Generic, Show)
 
-toInternalSelectionParams :: SelectionParams -> Internal.SelectionParams InputId
+toInternalSelectionParams
+    :: SelectionParams
+    -> Internal.SelectionParams Address InputId
 toInternalSelectionParams SelectionParams {..} =
     Internal.SelectionParams
         { utxoAvailableForCollateral =
