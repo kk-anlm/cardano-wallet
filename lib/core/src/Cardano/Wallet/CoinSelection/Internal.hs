@@ -952,7 +952,7 @@ data FailureToVerifySelectionLimitReachedError u =
 --
 verifySelectionLimitReachedError
     :: forall u. Show u
-    => VerifySelectionError (Balance.SelectionLimitReachedError u) u
+    => VerifySelectionError (Balance.SelectionLimitReachedError Address u) u
 verifySelectionLimitReachedError cs ps e =
     verify
         (Balance.MaximumInputLimit selectedInputCount >= selectionLimitAdjusted)

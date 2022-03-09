@@ -1039,7 +1039,8 @@ prop_performSelection mockConstraints params coverage =
       where
         BalanceInsufficientError errorBalanceAvailable errorBalanceRequired = e
 
-    onSelectionLimitReached :: SelectionLimitReachedError InputId -> Property
+    onSelectionLimitReached
+        :: SelectionLimitReachedError Address InputId -> Property
     onSelectionLimitReached e =
         counterexample "onSelectionLimitReached" $
         report errorBalanceRequired

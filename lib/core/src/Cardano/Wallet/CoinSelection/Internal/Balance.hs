@@ -705,7 +705,7 @@ data SelectionBalanceError u
     = BalanceInsufficient
         BalanceInsufficientError
     | SelectionLimitReached
-        (SelectionLimitReachedError u)
+        (SelectionLimitReachedError Address u)
     | InsufficientMinCoinValues
         (NonEmpty InsufficientMinCoinValueError)
     | UnableToConstructChange
@@ -716,7 +716,7 @@ data SelectionBalanceError u
 -- | Indicates that the balance of selected UTxO entries was insufficient to
 --   cover the balance required while remaining within the selection limit.
 --
-data SelectionLimitReachedError u = SelectionLimitReachedError
+data SelectionLimitReachedError address u = SelectionLimitReachedError
     { utxoBalanceRequired
         :: !TokenBundle
       -- ^ The UTXO balance required.
@@ -725,7 +725,7 @@ data SelectionLimitReachedError u = SelectionLimitReachedError
       -- ^ The inputs that could be selected while satisfying the
       -- 'selectionLimit'.
     , outputsToCover
-        :: !(NonEmpty (Address, TokenBundle))
+        :: !(NonEmpty (address, TokenBundle))
     } deriving (Generic, Eq, Show)
 
 -- | Indicates that the balance of available UTxO entries is insufficient to
