@@ -145,18 +145,15 @@
       "inputs": {
         "ema": "ema_2",
         "flake-compat": [
-          "emanote",
           "ema",
           "flake-compat"
         ],
         "flake-utils": [
-          "emanote",
           "ema",
           "flake-utils"
         ],
         "heist": "heist",
         "nixpkgs": [
-          "emanote",
           "ema",
           "nixpkgs"
         ],
