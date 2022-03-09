@@ -242,7 +242,7 @@ data SelectionError address u
 
 -- | Represents a balanced selection.
 --
-data Selection u = Selection
+data Selection address u = Selection
     { inputs
         :: !(NonEmpty (u, TokenBundle))
         -- ^ Selected inputs.
@@ -250,7 +250,7 @@ data Selection u = Selection
         :: ![(u, Coin)]
         -- ^ Selected collateral inputs.
     , outputs
-        :: ![(Address, TokenBundle)]
+        :: ![(address, TokenBundle)]
         -- ^ User-specified outputs
     , change
         :: ![TokenBundle]
@@ -305,12 +305,12 @@ type PerformSelection m a u =
 --
 performSelection
     :: (HasCallStack, MonadRandom m, Ord u, Show u)
-    => PerformSelection m (Selection u) u
+    => PerformSelection m (Selection Address u) u
 performSelection cs = performSelectionInner cs <=< prepareOutputs cs
 
 performSelectionInner
     :: (HasCallStack, MonadRandom m, Ord u, Show u)
-    => PerformSelection m (Selection u) u
+    => PerformSelection m (Selection Address u) u
 performSelectionInner cs ps = do
     balanceResult <- performSelectionBalance cs ps
     collateralResult <- performSelectionCollateral balanceResult cs ps
@@ -348,7 +348,7 @@ performSelectionCollateral balanceResult cs ps
 -- Since change outputs do not have addresses at the point of generation,
 -- this function assigns all change outputs with a dummy change address.
 --
-selectionAllOutputs :: Selection u -> [(Address, TokenBundle)]
+selectionAllOutputs :: Selection Address u -> [(Address, TokenBundle)]
 selectionAllOutputs selection = (<>)
     (selection ^. #outputs)
     (selection ^. #change <&> (dummyChangeAddress, ))
@@ -483,7 +483,7 @@ mkSelection
     :: SelectionParams Address u
     -> Balance.SelectionResult Address u
     -> Collateral.SelectionResult u
-    -> Selection u
+    -> Selection Address u
 mkSelection _params balanceResult collateralResult = Selection
     { inputs = view #inputsSelected balanceResult
     , collateral = Map.toList $ view #coinsSelected collateralResult
@@ -497,7 +497,7 @@ mkSelection _params balanceResult collateralResult = Selection
 
 -- | Converts a 'Selection' to a balance result.
 --
-toBalanceResult :: Selection u -> Balance.SelectionResult Address u
+toBalanceResult :: Selection Address u -> Balance.SelectionResult Address u
 toBalanceResult selection = Balance.SelectionResult
     { inputsSelected = view #inputs selection
     , outputsCovered = view #outputs selection
@@ -616,7 +616,7 @@ verifyEmpty xs failureReason =
 type VerifySelection u =
     SelectionConstraints Address ->
     SelectionParams Address u ->
-    Selection u ->
+    Selection Address u ->
     VerificationResult
 
 -- | Verifies a 'Selection' for correctness.
@@ -1033,7 +1033,7 @@ verifyUnableToConstructChangeError cs ps errorOriginal =
     --   - a minimum ada quantity function that always returns zero.
     --
     resultWithMinimalConstraints
-        :: Either (SelectionError Address u) (Selection u)
+        :: Either (SelectionError Address u) (Selection Address u)
     resultWithMinimalConstraints =
         -- The 'performSelection' function requires a 'MonadRandom' context so
         -- that it can select entries at random from the available UTxO set.
@@ -1191,14 +1191,14 @@ verifySelectionOutputTokenQuantityExceedsLimitError _cs _ps e =
 --
 -- See 'SelectionDelta'.
 --
-selectionDeltaAllAssets :: Selection u -> SelectionDelta TokenBundle
+selectionDeltaAllAssets :: Selection Address u -> SelectionDelta TokenBundle
 selectionDeltaAllAssets = Balance.selectionDeltaAllAssets . toBalanceResult
 
 -- | Calculates the ada selection delta.
 --
 -- See 'SelectionDelta'.
 --
-selectionDeltaCoin :: Selection u -> SelectionDelta Coin
+selectionDeltaCoin :: Selection Address u -> SelectionDelta Coin
 selectionDeltaCoin = fmap TokenBundle.getCoin . selectionDeltaAllAssets
 
 -- | Indicates whether or not a selection has a valid surplus.
@@ -1212,7 +1212,7 @@ selectionDeltaCoin = fmap TokenBundle.getCoin . selectionDeltaAllAssets
 selectionHasValidSurplus
     :: SelectionConstraints Address
     -> SelectionParams Address u
-    -> Selection u
+    -> Selection Address u
     -> Bool
 selectionHasValidSurplus constraints params selection =
     Balance.selectionHasValidSurplus
@@ -1224,7 +1224,7 @@ selectionHasValidSurplus constraints params selection =
 selectionMinimumCost
     :: SelectionConstraints Address
     -> SelectionParams Address u
-    -> Selection u
+    -> Selection Address u
     -> Coin
 selectionMinimumCost constraints params selection =
     Balance.selectionMinimumCost
@@ -1236,7 +1236,7 @@ selectionMinimumCost constraints params selection =
 selectionMaximumCost
     :: SelectionConstraints Address
     -> SelectionParams Address u
-    -> Selection u
+    -> Selection Address u
     -> Coin
 selectionMaximumCost constraints params selection =
     Balance.selectionMaximumCost
@@ -1251,7 +1251,7 @@ selectionMaximumCost constraints params selection =
 -- Use 'selectionDeltaCoin' if you wish to handle the case where there is
 -- a deficit.
 --
-selectionSurplusCoin :: Selection u -> Coin
+selectionSurplusCoin :: Selection Address u -> Coin
 selectionSurplusCoin = Balance.selectionSurplusCoin . toBalanceResult
 
 --------------------------------------------------------------------------------
@@ -1286,7 +1286,7 @@ whenCollateralRequired params f
 
 -- | Computes the total amount of collateral within a selection.
 --
-selectionCollateral :: Selection u -> Coin
+selectionCollateral :: Selection Address u -> Coin
 selectionCollateral = F.foldMap snd . view #collateral
 
 -- | Indicates whether or not a selection has sufficient collateral.
@@ -1294,7 +1294,7 @@ selectionCollateral = F.foldMap snd . view #collateral
 selectionHasSufficientCollateral
     :: SelectionConstraints Address
     -> SelectionParams Address u
-    -> Selection u
+    -> Selection Address u
     -> Bool
 selectionHasSufficientCollateral constraints params selection =
     actual >= required
@@ -1307,7 +1307,7 @@ selectionHasSufficientCollateral constraints params selection =
 selectionMinimumCollateral
     :: SelectionConstraints Address
     -> SelectionParams Address u
-    -> Selection u
+    -> Selection Address u
     -> Coin
 selectionMinimumCollateral constraints params selection
     | selectionCollateralRequired params =

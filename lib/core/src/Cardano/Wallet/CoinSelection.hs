@@ -338,7 +338,7 @@ data SelectionOf change = Selection
 type Selection = SelectionOf TokenBundle
 
 toExternalSelection
-    :: SelectionParams -> Internal.Selection InputId -> Selection
+    :: SelectionParams -> Internal.Selection Address InputId -> Selection
 toExternalSelection _ps Internal.Selection {..} =
     Selection
         { collateral =
@@ -355,7 +355,7 @@ toExternalSelection _ps Internal.Selection {..} =
 toInternalSelection
     :: (change -> TokenBundle)
     -> SelectionOf change
-    -> Internal.Selection InputId
+    -> Internal.Selection Address InputId
 toInternalSelection getChangeBundle Selection {..} =
     Internal.Selection
         { change = getChangeBundle
