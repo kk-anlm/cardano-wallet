@@ -1148,9 +1148,9 @@ verifySelectionOutputError cs ps = \case
 -- Selection error verification: output size errors
 --------------------------------------------------------------------------------
 
-newtype FailureToVerifySelectionOutputSizeExceedsLimitError =
+newtype FailureToVerifySelectionOutputSizeExceedsLimitError address =
     FailureToVerifySelectionOutputSizeExceedsLimitError
-        { outputReportedAsExceedingLimit :: (Address, TokenBundle) }
+        { outputReportedAsExceedingLimit :: (address, TokenBundle) }
     deriving (Eq, Show)
 
 verifySelectionOutputSizeExceedsLimitError
