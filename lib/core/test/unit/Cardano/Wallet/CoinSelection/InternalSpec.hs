@@ -208,7 +208,7 @@ prop_performSelection (Pretty mockConstraints) (Pretty params) =
 prop_performSelection_inner
     :: SelectionConstraints Address
     -> SelectionParams Address InputId
-    -> Either (SelectionError InputId) (Selection InputId)
+    -> Either (SelectionError Address InputId) (Selection InputId)
     -> Property
 prop_performSelection_inner constraints params result =
     checkCoverage $
@@ -226,7 +226,7 @@ prop_performSelection_inner constraints params result =
 prop_performSelection_coverage
     :: Testable property
     => SelectionParams Address InputId
-    -> Either (SelectionError InputId) (Selection InputId)
+    -> Either (SelectionError Address InputId) (Selection InputId)
     -> property
     -> Property
 prop_performSelection_coverage params r innerProperty =

@@ -231,13 +231,13 @@ data SelectionParams address u = SelectionParams
 
 -- | Indicates that an error occurred while performing a coin selection.
 --
-data SelectionError u
+data SelectionError address u
     = SelectionBalanceErrorOf
-      (SelectionBalanceError Address u)
+      (SelectionBalanceError address u)
     | SelectionCollateralErrorOf
       (SelectionCollateralError u)
     | SelectionOutputErrorOf
-      (SelectionOutputError Address)
+      (SelectionOutputError address)
     deriving (Eq, Show)
 
 -- | Represents a balanced selection.
@@ -275,7 +275,7 @@ data Selection u = Selection
 type PerformSelection m a u =
     SelectionConstraints Address ->
     SelectionParams Address u ->
-    ExceptT (SelectionError u) m a
+    ExceptT (SelectionError Address u) m a
 
 --------------------------------------------------------------------------------
 -- Performing a selection
@@ -832,7 +832,7 @@ type VerifySelectionError e u =
 --
 verifySelectionError
     :: (Ord u, Show u)
-    => VerifySelectionError (SelectionError u) u
+    => VerifySelectionError (SelectionError Address u) u
 verifySelectionError cs ps = \case
     SelectionBalanceErrorOf e ->
         verifySelectionBalanceError cs ps e
@@ -986,7 +986,7 @@ data FailureToVerifyUnableToConstructChangeError u =
             :: Balance.UnableToConstructChangeError
             -- ^ The original error.
         , errorWithMinimalConstraints
-            :: SelectionError u
+            :: SelectionError Address u
             -- ^ An error encountered when attempting to re-run the selection
             -- process with minimal constraints.
         }
@@ -1032,7 +1032,8 @@ verifyUnableToConstructChangeError cs ps errorOriginal =
     --   - a minimum cost function that always returns zero.
     --   - a minimum ada quantity function that always returns zero.
     --
-    resultWithMinimalConstraints :: Either (SelectionError u) (Selection u)
+    resultWithMinimalConstraints
+        :: Either (SelectionError Address u) (Selection u)
     resultWithMinimalConstraints =
         -- The 'performSelection' function requires a 'MonadRandom' context so
         -- that it can select entries at random from the available UTxO set.

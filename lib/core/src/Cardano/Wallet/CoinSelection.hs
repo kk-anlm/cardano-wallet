@@ -388,7 +388,7 @@ performSelection
     :: (HasCallStack, MonadRandom m)
     => SelectionConstraints
     -> SelectionParams
-    -> ExceptT (SelectionError InputId) m Selection
+    -> ExceptT (SelectionError Address InputId) m Selection
 performSelection cs ps =
     toExternalSelection ps <$>
     Internal.performSelection
