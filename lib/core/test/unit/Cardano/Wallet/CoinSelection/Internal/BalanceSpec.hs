@@ -1261,7 +1261,7 @@ withTransformationReport p r = TransformationReport p r r
 --    - a single change output to cover the output deficit.
 --
 mockPerformSelectionNonEmpty
-    :: PerformSelection Identity NonEmpty InputId
+    :: PerformSelection Identity NonEmpty Address InputId
 mockPerformSelectionNonEmpty constraints params = Identity $ Right result
   where
     result :: SelectionResultOf NonEmpty InputId

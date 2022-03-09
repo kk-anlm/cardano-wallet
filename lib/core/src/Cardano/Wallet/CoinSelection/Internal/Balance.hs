@@ -774,7 +774,7 @@ data UnableToConstructChangeError = UnableToConstructChangeError
         -- selection cost and minimum coin quantity of each change output.
     } deriving (Generic, Eq, Show)
 
-type PerformSelection m outputs u =
+type PerformSelection m outputs address u =
     SelectionConstraints ->
     SelectionParamsOf outputs u ->
     m (Either (SelectionBalanceError u) (SelectionResultOf outputs u))
@@ -787,7 +787,7 @@ type PerformSelection m outputs u =
 --
 performSelection
     :: forall m u. (HasCallStack, MonadRandom m, Ord u, Show u)
-    => PerformSelection m [] u
+    => PerformSelection m [] Address u
 performSelection = performSelectionEmpty performSelectionNonEmpty
 
 -- | Transforms a coin selection function that requires a non-empty list of
@@ -818,7 +818,9 @@ performSelection = performSelectionEmpty performSelectionNonEmpty
 --          selectionHasValidSurplus constraints (transformResult result)
 --
 performSelectionEmpty
-    :: Functor m => PerformSelection m NonEmpty u -> PerformSelection m [] u
+    :: Functor m
+    => PerformSelection m NonEmpty Address u
+    -> PerformSelection m []       Address u
 performSelectionEmpty performSelectionFn constraints params =
     fmap transformResult <$>
     performSelectionFn constraints (transformParams params)
@@ -864,7 +866,7 @@ performSelectionEmpty performSelectionFn constraints params =
 
 performSelectionNonEmpty
     :: forall m u. (HasCallStack, MonadRandom m, Ord u, Show u)
-    => PerformSelection m NonEmpty u
+    => PerformSelection m NonEmpty Address u
 performSelectionNonEmpty constraints params
     -- Is the total available UTXO balance sufficient?
     | not utxoBalanceSufficient =
