@@ -707,7 +707,7 @@ data SelectionBalanceError u
     | SelectionLimitReached
         (SelectionLimitReachedError Address u)
     | InsufficientMinCoinValues
-        (NonEmpty InsufficientMinCoinValueError)
+        (NonEmpty (InsufficientMinCoinValueError Address))
     | UnableToConstructChange
         UnableToConstructChangeError
     | EmptyUTxO
@@ -752,9 +752,9 @@ balanceMissing (BalanceInsufficientError available required) =
 --
 -- See also: 'prepareOutputs'.
 --
-data InsufficientMinCoinValueError = InsufficientMinCoinValueError
+data InsufficientMinCoinValueError address = InsufficientMinCoinValueError
     { outputWithInsufficientAda
-        :: !(Address, TokenBundle)
+        :: !(address, TokenBundle)
         -- ^ The particular output that does not have the minimum coin quantity
         -- expected by the protocol.
     , expectedMinCoinValue
@@ -762,7 +762,9 @@ data InsufficientMinCoinValueError = InsufficientMinCoinValueError
         -- ^ The minimum coin quantity expected for this output.
     } deriving (Generic, Eq, Show)
 
-instance Buildable InsufficientMinCoinValueError where
+instance Buildable address =>
+    Buildable (InsufficientMinCoinValueError address)
+  where
     build (InsufficientMinCoinValueError (a, b) c) = unlinesF
         [ nameF "Expected min coin value" (build c)
         , nameF "Address" (build a)
@@ -945,13 +947,13 @@ performSelectionNonEmpty constraints params
     utxoBalanceSufficient :: Bool
     utxoBalanceSufficient = isUTxOBalanceSufficient params
 
-    insufficientMinCoinValues :: [InsufficientMinCoinValueError]
+    insufficientMinCoinValues :: [InsufficientMinCoinValueError Address]
     insufficientMinCoinValues =
         mapMaybe mkInsufficientMinCoinValueError outputsToCover
       where
         mkInsufficientMinCoinValueError
             :: (Address, TokenBundle)
-            -> Maybe InsufficientMinCoinValueError
+            -> Maybe (InsufficientMinCoinValueError Address)
         mkInsufficientMinCoinValueError o
             | view #coin (snd o) >= expectedMinCoinValue =
                 Nothing

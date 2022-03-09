@@ -1064,7 +1064,7 @@ prop_performSelection mockConstraints params coverage =
             F.foldMap (view #tokens . snd) errorInputsSelected
 
     onInsufficientMinCoinValues
-        :: NonEmpty InsufficientMinCoinValueError -> Property
+        :: NonEmpty (InsufficientMinCoinValueError Address) -> Property
     onInsufficientMinCoinValues es =
         counterexample "onInsufficientMinCoinValues" $
         report es

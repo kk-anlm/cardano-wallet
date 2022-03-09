@@ -910,7 +910,7 @@ data FailureToVerifyInsufficientMinCoinValueError =
     deriving (Eq, Show)
 
 verifyInsufficientMinCoinValueError
-    :: VerifySelectionError Balance.InsufficientMinCoinValueError u
+    :: VerifySelectionError (Balance.InsufficientMinCoinValueError Address) u
 verifyInsufficientMinCoinValueError cs _ps e =
     verifyAll
         [ reportedMinCoinValue == verifiedMinCoinValue
