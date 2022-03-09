@@ -801,9 +801,9 @@ verifySelectionOutputSizesWithinLimit cs _ps selection =
 -- Selection verification: output token quantities
 --------------------------------------------------------------------------------
 
-newtype FailureToVerifySelectionOutputTokenQuantitiesWithinLimit =
+newtype FailureToVerifySelectionOutputTokenQuantitiesWithinLimit address =
     FailureToVerifySelectionOutputTokenQuantitiesWithinLimit
-    (NonEmpty (SelectionOutputTokenQuantityExceedsLimitError Address))
+    (NonEmpty (SelectionOutputTokenQuantityExceedsLimitError address))
     deriving (Eq, Show)
 
 verifySelectionOutputTokenQuantitiesWithinLimit :: VerifySelection Address u
