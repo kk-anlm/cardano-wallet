@@ -359,8 +359,8 @@ selectionAllOutputs selection = (<>)
 -- | Creates constraints and parameters for 'Balance.performSelection'.
 --
 toBalanceConstraintsParams
-    :: (        SelectionConstraints        ,         SelectionParams u)
-    -> (Balance.SelectionConstraints Address, Balance.SelectionParams u)
+    :: (        SelectionConstraints        ,         SelectionParams         u)
+    -> (Balance.SelectionConstraints Address, Balance.SelectionParams Address u)
 toBalanceConstraintsParams (constraints, params) =
     (balanceConstraints, balanceParams)
   where

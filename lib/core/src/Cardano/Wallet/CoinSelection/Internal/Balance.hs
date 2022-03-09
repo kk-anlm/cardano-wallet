@@ -237,9 +237,9 @@ type SelectionParams = SelectionParamsOf []
 
 -- | Specifies all parameters that are specific to a given selection.
 --
-data SelectionParamsOf outputs u = SelectionParams
+data SelectionParamsOf outputs address u = SelectionParams
     { outputsToCover
-        :: !(outputs (Address, TokenBundle))
+        :: !(outputs (address, TokenBundle))
         -- ^ The complete set of outputs to be covered.
     , utxoAvailable
         :: !(UTxOSelection u)
@@ -274,12 +274,12 @@ data SelectionParamsOf outputs u = SelectionParams
     deriving Generic
 
 deriving instance
-    (Eq (outputs (Address, TokenBundle)), Eq u) =>
-        Eq (SelectionParamsOf outputs u)
+    (Eq (outputs (address, TokenBundle)), Eq u) =>
+        Eq (SelectionParamsOf outputs address u)
 
 deriving instance
-    (Show (outputs (Address, TokenBundle)), Show u) =>
-        Show (SelectionParamsOf outputs u)
+    (Show (outputs (address, TokenBundle)), Show u) =>
+        Show (SelectionParamsOf outputs address u)
 
 -- | Indicates a choice of selection strategy.
 --
@@ -347,19 +347,20 @@ data UTxOBalanceSufficiencyInfo = UTxOBalanceSufficiencyInfo
 
 -- | Computes the balance of UTxO entries available for selection.
 --
-computeUTxOBalanceAvailable :: SelectionParamsOf outputs u -> TokenBundle
+computeUTxOBalanceAvailable
+    :: SelectionParamsOf outputs address u -> TokenBundle
 computeUTxOBalanceAvailable =
     UTxOSelection.availableBalance . view #utxoAvailable
 
 -- | Computes the balance of UTxO entries required to be selected.
 --
 computeUTxOBalanceRequired
-    :: Foldable outputs => SelectionParamsOf outputs u -> TokenBundle
+    :: Foldable outputs => SelectionParamsOf outputs address u -> TokenBundle
 computeUTxOBalanceRequired = fst . computeDeficitInOut
 
 computeBalanceInOut
     :: Foldable outputs
-    => SelectionParamsOf outputs u
+    => SelectionParamsOf outputs address u
     -> (TokenBundle, TokenBundle)
 computeBalanceInOut params =
     (balanceIn, balanceOut)
@@ -377,7 +378,7 @@ computeBalanceInOut params =
 
 computeDeficitInOut
     :: Foldable outputs
-    => SelectionParamsOf outputs u
+    => SelectionParamsOf outputs address u
     -> (TokenBundle, TokenBundle)
 computeDeficitInOut params =
     (deficitIn, deficitOut)
@@ -395,7 +396,7 @@ computeDeficitInOut params =
 --
 computeUTxOBalanceSufficiency
     :: Foldable outputs
-    => SelectionParamsOf outputs u
+    => SelectionParamsOf outputs address u
     -> UTxOBalanceSufficiency
 computeUTxOBalanceSufficiency = sufficiency . computeUTxOBalanceSufficiencyInfo
 
@@ -405,7 +406,7 @@ computeUTxOBalanceSufficiency = sufficiency . computeUTxOBalanceSufficiencyInfo
 --
 computeUTxOBalanceSufficiencyInfo
     :: Foldable outputs
-    => SelectionParamsOf outputs u
+    => SelectionParamsOf outputs address u
     -> UTxOBalanceSufficiencyInfo
 computeUTxOBalanceSufficiencyInfo params =
     UTxOBalanceSufficiencyInfo {available, required, difference, sufficiency}
@@ -427,7 +428,7 @@ computeUTxOBalanceSufficiencyInfo params =
 -- is greater than or equal to the required balance.
 --
 isUTxOBalanceSufficient
-    :: Foldable outputs => SelectionParamsOf outputs u -> Bool
+    :: Foldable outputs => SelectionParamsOf outputs address u -> Bool
 isUTxOBalanceSufficient params =
     case computeUTxOBalanceSufficiency params of
         UTxOBalanceSufficient   -> True
@@ -776,7 +777,7 @@ data UnableToConstructChangeError = UnableToConstructChangeError
 
 type PerformSelection m outputs address u =
     SelectionConstraints address ->
-    SelectionParamsOf outputs u ->
+    SelectionParamsOf outputs address u ->
     m (Either (SelectionBalanceError u) (SelectionResultOf outputs u))
 
 -- | Performs a coin selection and generates change bundles in one step.
@@ -826,8 +827,8 @@ performSelectionEmpty performSelectionFn constraints params =
     performSelectionFn constraints (transformParams params)
   where
     transformParams
-        :: SelectionParamsOf []       u
-        -> SelectionParamsOf NonEmpty u
+        :: SelectionParamsOf []       Address u
+        -> SelectionParamsOf NonEmpty Address u
     transformParams
         = over #extraCoinSource
             (transform (`Coin.add` minCoin) (const id))
