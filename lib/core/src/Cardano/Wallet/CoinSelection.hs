@@ -169,7 +169,7 @@ data SelectionConstraints = SelectionConstraints
     deriving Generic
 
 toInternalSelectionConstraints
-    :: SelectionConstraints -> Internal.SelectionConstraints
+    :: SelectionConstraints -> Internal.SelectionConstraints Address
 toInternalSelectionConstraints SelectionConstraints {..} =
     Internal.SelectionConstraints
         { computeMinimumCost =

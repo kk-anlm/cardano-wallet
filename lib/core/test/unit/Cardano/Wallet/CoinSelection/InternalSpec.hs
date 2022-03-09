@@ -206,7 +206,7 @@ prop_performSelection (Pretty mockConstraints) (Pretty params) =
     constraints = unMockSelectionConstraints mockConstraints
 
 prop_performSelection_inner
-    :: SelectionConstraints
+    :: SelectionConstraints Address
     -> SelectionParams InputId
     -> Either (SelectionError InputId) (Selection InputId)
     -> Property
@@ -353,7 +353,7 @@ prop_toBalanceConstraintsParams_computeMinimumCost
         else
             costOriginal === costAdjusted
   where
-    constraints :: SelectionConstraints
+    constraints :: SelectionConstraints Address
     constraints = unMockSelectionConstraints mockConstraints
 
     maximumCollateralInputCount :: Int
@@ -404,7 +404,7 @@ prop_toBalanceConstraintsParams_computeSelectionLimit mockConstraints params =
     else
         selectionLimitOriginal === selectionLimitAdjusted
   where
-    constraints :: SelectionConstraints
+    constraints :: SelectionConstraints Address
     constraints = unMockSelectionConstraints mockConstraints
 
     maximumCollateralInputCount :: Int
@@ -565,7 +565,8 @@ shrinkMockSelectionConstraints = genericRoundRobinShrink
     <:> shrinkMinimumCollateralPercentage
     <:> Nil
 
-unMockSelectionConstraints :: MockSelectionConstraints -> SelectionConstraints
+unMockSelectionConstraints
+    :: MockSelectionConstraints -> SelectionConstraints Address
 unMockSelectionConstraints m = SelectionConstraints
     { assessTokenBundleSize =
         unMockAssessTokenBundleSize $ view #assessTokenBundleSize m

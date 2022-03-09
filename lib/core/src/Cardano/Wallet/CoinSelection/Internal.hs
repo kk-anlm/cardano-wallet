@@ -147,7 +147,7 @@ import qualified Data.Map.Strict as Map
 --    - place limits on the coin selection algorithm, enabling it to produce
 --      selections that are acceptable to the ledger.
 --
-data SelectionConstraints = SelectionConstraints
+data SelectionConstraints address = SelectionConstraints
     { assessTokenBundleSize
         :: TokenBundle -> TokenBundleSizeAssessment
         -- ^ Assesses the size of a token bundle relative to the upper limit of
@@ -162,10 +162,10 @@ data SelectionConstraints = SelectionConstraints
         :: TokenMap -> Coin
         -- ^ Computes the minimum ada quantity required for a given output.
     , computeMinimumCost
-        :: SelectionSkeleton Address -> Coin
+        :: SelectionSkeleton address -> Coin
         -- ^ Computes the minimum cost of a given selection skeleton.
     , computeSelectionLimit
-        :: [(Address, TokenBundle)] -> SelectionLimit
+        :: [(address, TokenBundle)] -> SelectionLimit
         -- ^ Computes an upper bound for the number of ordinary inputs to
         -- select, given a current set of outputs.
     , maximumCollateralInputCount
@@ -273,7 +273,7 @@ data Selection u = Selection
 -- | Provides a context for functions related to 'performSelection'.
 
 type PerformSelection m a u =
-    SelectionConstraints ->
+    SelectionConstraints Address ->
     SelectionParams u ->
     ExceptT (SelectionError u) m a
 
@@ -359,7 +359,7 @@ selectionAllOutputs selection = (<>)
 -- | Creates constraints and parameters for 'Balance.performSelection'.
 --
 toBalanceConstraintsParams
-    :: (        SelectionConstraints        ,         SelectionParams         u)
+    :: (        SelectionConstraints Address,         SelectionParams         u)
     -> (Balance.SelectionConstraints Address, Balance.SelectionParams Address u)
 toBalanceConstraintsParams (constraints, params) =
     (balanceConstraints, balanceParams)
@@ -449,8 +449,8 @@ toBalanceConstraintsParams (constraints, params) =
 --
 toCollateralConstraintsParams
     :: Balance.SelectionResult Address u
-    -> (           SelectionConstraints,            SelectionParams u)
-    -> (Collateral.SelectionConstraints, Collateral.SelectionParams u)
+    -> (           SelectionConstraints Address,            SelectionParams u)
+    -> (Collateral.SelectionConstraints        , Collateral.SelectionParams u)
 toCollateralConstraintsParams balanceResult (constraints, params) =
     (collateralConstraints, collateralParams)
   where
@@ -614,7 +614,7 @@ verifyEmpty xs failureReason =
 -- | The type of all 'Selection' verification functions.
 --
 type VerifySelection u =
-    SelectionConstraints ->
+    SelectionConstraints Address ->
     SelectionParams u ->
     Selection u ->
     VerificationResult
@@ -819,7 +819,7 @@ verifySelectionOutputTokenQuantitiesWithinLimit _cs _ps selection =
 -- | The type of all 'SelectionError' verification functions.
 --
 type VerifySelectionError e u =
-    SelectionConstraints ->
+    SelectionConstraints Address ->
     SelectionParams u ->
     e ->
     VerificationResult
@@ -1205,7 +1205,7 @@ selectionDeltaCoin = fmap TokenBundle.getCoin . selectionDeltaAllAssets
 -- See 'SelectionDelta'.
 --
 selectionHasValidSurplus
-    :: SelectionConstraints
+    :: SelectionConstraints Address
     -> SelectionParams u
     -> Selection u
     -> Bool
@@ -1217,7 +1217,7 @@ selectionHasValidSurplus constraints params selection =
 -- | Computes the minimum required cost of a selection.
 --
 selectionMinimumCost
-    :: SelectionConstraints
+    :: SelectionConstraints Address
     -> SelectionParams u
     -> Selection u
     -> Coin
@@ -1229,7 +1229,7 @@ selectionMinimumCost constraints params selection =
 -- | Computes the maximum acceptable cost of a selection.
 --
 selectionMaximumCost
-    :: SelectionConstraints
+    :: SelectionConstraints Address
     -> SelectionParams u
     -> Selection u
     -> Coin
@@ -1287,7 +1287,7 @@ selectionCollateral = F.foldMap snd . view #collateral
 -- | Indicates whether or not a selection has sufficient collateral.
 --
 selectionHasSufficientCollateral
-    :: SelectionConstraints
+    :: SelectionConstraints Address
     -> SelectionParams u
     -> Selection u
     -> Bool
@@ -1300,7 +1300,7 @@ selectionHasSufficientCollateral constraints params selection =
 -- | Computes the minimum required amount of collateral for a selection.
 --
 selectionMinimumCollateral
-    :: SelectionConstraints
+    :: SelectionConstraints Address
     -> SelectionParams u
     -> Selection u
     -> Coin
@@ -1339,7 +1339,7 @@ computeMinimumCollateral params =
 -- | Prepares the given user-specified outputs, ensuring that they are valid.
 --
 prepareOutputsInternal
-    :: SelectionConstraints
+    :: SelectionConstraints Address
     -> [(Address, TokenBundle)]
     -> Either SelectionOutputError [(Address, TokenBundle)]
 prepareOutputsInternal constraints outputsUnprepared
@@ -1423,7 +1423,7 @@ newtype SelectionOutputSizeExceedsLimitError =
 -- exceeds the limit defined by the protocol.
 --
 verifyOutputSize
-    :: SelectionConstraints
+    :: SelectionConstraints Address
     -> (Address, TokenBundle)
     -> Maybe SelectionOutputSizeExceedsLimitError
 verifyOutputSize cs out
