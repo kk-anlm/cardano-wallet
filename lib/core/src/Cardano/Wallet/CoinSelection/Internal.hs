@@ -818,9 +818,9 @@ verifySelectionOutputTokenQuantitiesWithinLimit _cs _ps selection =
 
 -- | The type of all 'SelectionError' verification functions.
 --
-type VerifySelectionError e u =
-    SelectionConstraints Address ->
-    SelectionParams Address u ->
+type VerifySelectionError e address u =
+    SelectionConstraints address ->
+    SelectionParams address u ->
     e ->
     VerificationResult
 
@@ -832,7 +832,7 @@ type VerifySelectionError e u =
 --
 verifySelectionError
     :: (Ord u, Show u)
-    => VerifySelectionError (SelectionError Address u) u
+    => VerifySelectionError (SelectionError Address u) Address u
 verifySelectionError cs ps = \case
     SelectionBalanceErrorOf e ->
         verifySelectionBalanceError cs ps e
@@ -847,7 +847,7 @@ verifySelectionError cs ps = \case
 
 verifySelectionBalanceError
     :: (Ord u, Show u)
-    => VerifySelectionError (SelectionBalanceError Address u) u
+    => VerifySelectionError (SelectionBalanceError Address u) Address u
 verifySelectionBalanceError cs ps = \case
     Balance.BalanceInsufficient e ->
         verifyBalanceInsufficientError cs ps e
@@ -872,7 +872,7 @@ data FailureToVerifyBalanceInsufficientError =
     deriving (Eq, Show)
 
 verifyBalanceInsufficientError
-    :: VerifySelectionError Balance.BalanceInsufficientError u
+    :: VerifySelectionError Balance.BalanceInsufficientError Address u
 verifyBalanceInsufficientError cs ps e =
     verifyAll
         [ not (utxoBalanceRequired `leq` utxoBalanceAvailable)
@@ -892,7 +892,7 @@ newtype FailureToVerifyEmptyUTxOError u = FailureToVerifyEmptyUTxOError
     { utxoAvailableForInputs :: UTxOSelection u }
     deriving (Eq, Show)
 
-verifyEmptyUTxOError :: (Eq u, Show u) => VerifySelectionError () u
+verifyEmptyUTxOError :: (Eq u, Show u) => VerifySelectionError () Address u
 verifyEmptyUTxOError _cs SelectionParams {utxoAvailableForInputs} _e =
     verify
         (utxoAvailableForInputs == UTxOSelection.empty)
@@ -911,7 +911,8 @@ data FailureToVerifyInsufficientMinCoinValueError =
     deriving (Eq, Show)
 
 verifyInsufficientMinCoinValueError
-    :: VerifySelectionError (Balance.InsufficientMinCoinValueError Address) u
+    :: VerifySelectionError
+        (Balance.InsufficientMinCoinValueError Address) Address u
 verifyInsufficientMinCoinValueError cs _ps e =
     verifyAll
         [ reportedMinCoinValue == verifiedMinCoinValue
@@ -953,7 +954,8 @@ data FailureToVerifySelectionLimitReachedError u =
 --
 verifySelectionLimitReachedError
     :: forall u. Show u
-    => VerifySelectionError (Balance.SelectionLimitReachedError Address u) u
+    => VerifySelectionError
+        (Balance.SelectionLimitReachedError Address u) Address u
 verifySelectionLimitReachedError cs ps e =
     verify
         (Balance.MaximumInputLimit selectedInputCount >= selectionLimitAdjusted)
@@ -1017,7 +1019,8 @@ data FailureToVerifyUnableToConstructChangeError u =
 --
 verifyUnableToConstructChangeError
     :: forall u. (Ord u, Show u)
-    => VerifySelectionError Balance.UnableToConstructChangeError u
+    => VerifySelectionError
+        Balance.UnableToConstructChangeError Address u
 verifyUnableToConstructChangeError cs ps errorOriginal =
     case resultWithMinimalConstraints of
         Left errorWithMinimalConstraints ->
@@ -1102,7 +1105,7 @@ data FailureToVerifySelectionCollateralError u =
 
 verifySelectionCollateralError
     :: forall u. (Ord u, Show u)
-    => VerifySelectionError (SelectionCollateralError u) u
+    => VerifySelectionError (SelectionCollateralError u) Address u
 verifySelectionCollateralError cs ps e =
     verifyAll
         [ Map.null largestCombinationUnsuitableSubset
@@ -1133,7 +1136,7 @@ verifySelectionCollateralError cs ps e =
 --------------------------------------------------------------------------------
 
 verifySelectionOutputError
-    :: VerifySelectionError (SelectionOutputError Address) u
+    :: VerifySelectionError (SelectionOutputError Address) Address u
 verifySelectionOutputError cs ps = \case
     SelectionOutputSizeExceedsLimit e ->
         verifySelectionOutputSizeExceedsLimitError cs ps e
@@ -1150,7 +1153,8 @@ newtype FailureToVerifySelectionOutputSizeExceedsLimitError =
     deriving (Eq, Show)
 
 verifySelectionOutputSizeExceedsLimitError
-    :: VerifySelectionError (SelectionOutputSizeExceedsLimitError Address) u
+    :: VerifySelectionError
+        (SelectionOutputSizeExceedsLimitError Address) Address u
 verifySelectionOutputSizeExceedsLimitError cs _ps e =
     verify
         (not isWithinLimit)
@@ -1177,7 +1181,7 @@ newtype FailureToVerifySelectionOutputTokenQuantityExceedsLimitError =
 
 verifySelectionOutputTokenQuantityExceedsLimitError
     :: VerifySelectionError
-        (SelectionOutputTokenQuantityExceedsLimitError Address) u
+        (SelectionOutputTokenQuantityExceedsLimitError Address) Address u
 verifySelectionOutputTokenQuantityExceedsLimitError _cs _ps e =
     verify
         (e ^. #quantity > e ^. #quantityMaxBound)
