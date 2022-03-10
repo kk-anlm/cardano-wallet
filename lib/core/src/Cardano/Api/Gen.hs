@@ -115,7 +115,7 @@ import Cardano.Api.Shelley
     , StakePoolRelay (..)
     )
 import Cardano.Ledger.Credential
-    ( Ix, Ptr (..) )
+    ( Ptr (..) )
 import Cardano.Ledger.SafeHash
     ( unsafeMakeSafeHash )
 import Cardano.Ledger.Shelley.API
@@ -200,6 +200,8 @@ import qualified Data.Text.Encoding as T
 import qualified Plutus.V1.Ledger.Api as Plutus
 import qualified Test.Cardano.Ledger.Shelley.Serialisation.Generators.Genesis as Ledger
     ( genStakePoolRelay )
+
+type Ix = Word64
 
 genShelleyHash
     :: Gen (Crypto.Hash Crypto.Blake2b_256 Ledger.EraIndependentTxBody)
