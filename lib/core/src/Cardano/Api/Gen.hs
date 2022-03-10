@@ -182,7 +182,7 @@ import qualified Cardano.Binary as CBOR
 import qualified Cardano.Crypto.Hash as Crypto
 import qualified Cardano.Crypto.Seed as Crypto
 import qualified Cardano.Ledger.BaseTypes as Ledger
-    ( Port, dnsToText )
+    ( CertIx(..), Port, TxIx(..), dnsToText )
 import qualified Cardano.Ledger.Shelley.API as Ledger
     ( StakePoolRelay (..), portToWord16 )
 import qualified Cardano.Ledger.Shelley.TxBody as Ledger
@@ -200,8 +200,6 @@ import qualified Data.Text.Encoding as T
 import qualified Plutus.V1.Ledger.Api as Plutus
 import qualified Test.Cardano.Ledger.Shelley.Serialisation.Generators.Genesis as Ledger
     ( genStakePoolRelay )
-
-type Ix = Word64
 
 genShelleyHash
     :: Gen (Crypto.Hash Crypto.Blake2b_256 Ledger.EraIndependentTxBody)
@@ -703,11 +701,13 @@ genTxMetadataValue =
                 ((,) <$> genTxMetadataValue <*> genTxMetadataValue)
 
 genPtr :: Gen Ptr
-genPtr = Ptr <$> genSlotNo <*> genIx <*> genIx
+genPtr = Ptr <$> genSlotNo <*> (Ledger.TxIx <$> genIx) <*> (Ledger.CertIx <$> genIx)
+
+type Ix = Word16
 
 genIx :: Gen Ix
 genIx = do
-    (Large (n :: Word64)) <- arbitrary
+    (Large (n :: Word16)) <- arbitrary
     pure n
 
 genStakeAddressReference :: Gen StakeAddressReference
