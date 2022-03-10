@@ -180,18 +180,6 @@ library
       Cardano.Wallet.CoinSelection.Internal.Balance
       Cardano.Wallet.CoinSelection.Internal.Collateral
       Cardano.Wallet.Compat
-      Cardano.Wallet.DB
-      Cardano.Wallet.DB.Checkpoints
-      Cardano.Wallet.DB.MVar
-      Cardano.Wallet.DB.Model
-      Cardano.Wallet.DB.Sqlite
-      Cardano.Wallet.DB.Sqlite.AddressBook
-      Cardano.Wallet.DB.Sqlite.CheckpointsOld
-      Cardano.Wallet.DB.Sqlite.Migration
-      Cardano.Wallet.DB.Sqlite.Stores
-      Cardano.Wallet.DB.Sqlite.TH
-      Cardano.Wallet.DB.Sqlite.Types
-      Cardano.Wallet.DB.WalletState
       Cardano.Wallet.Logging
       Cardano.Wallet.Network
       Cardano.Wallet.Network.Ports
